@@ -1,0 +1,19 @@
+{
+  "name": "cc-upgrade",
+  "version": "0.1.0",
+  "description": "Monitor Anthropic ecosystem changes and get prioritized upgrade recommendations for your Claude Code setup. Tracks 30+ sources including Claude Code releases, MCP updates, skills repo, SDKs, changelogs, blogs, and documentation.",
+  "author": {
+    "name": "TJ Kang",
+    "url": "https://github.com/tjkang"
+  },
+  "repository": "https://github.com/tjkang/cc-plugins",
+  "license": "MIT",
+  "keywords": [
+    "upgrade",
+    "monitoring",
+    "anthropic",
+    "mcp",
+    "claude-code",
+    "ecosystem"
+  ]
+}
