@@ -11,7 +11,7 @@
 
 import { readFileSync, writeFileSync, existsSync, appendFileSync } from 'fs';
 import { createHash } from 'crypto';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { homedir } from 'os';
 
 // ── Types ──
@@ -73,7 +73,8 @@ const HOME = homedir();
 const STATE_FILE = join(HOME, '.claude', 'cc-upgrade.state.json');
 const LOG_FILE = join(HOME, '.claude', 'cc-upgrade.log.jsonl');
 
-const PLUGIN_ROOT = process.env.CLAUDE_PLUGIN_ROOT || join(HOME, 'Workspaces/active/cc-plugins/cc-upgrade');
+const SCRIPT_DIR = dirname(new URL(import.meta.url).pathname);
+const PLUGIN_ROOT = process.env.CLAUDE_PLUGIN_ROOT || join(SCRIPT_DIR, '..');
 const USER_SOURCES = join(HOME, '.claude', 'cc-upgrade-sources.json');
 const BUNDLED_SOURCES = join(PLUGIN_ROOT, 'skills', 'upgrade', 'sources.json');
 const SOURCES_FILE = existsSync(USER_SOURCES) ? USER_SOURCES : BUNDLED_SOURCES;
