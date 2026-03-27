@@ -7,6 +7,8 @@ description: This skill should be used when the user asks to "check for upgrades
 
 Monitor the Anthropic ecosystem for changes relevant to a Claude Code setup. Track 30+ sources including Claude Code releases, MCP updates, skills repo, SDK releases, documentation, and blogs.
 
+**Where to run:** Any project directory, once. Ecosystem source checks are identical everywhere; global config (`~/.claude/`) is always read. The current project's CLAUDE.md and git history improve recommendation filtering but are not required.
+
 ## Prerequisites
 
 - **Bun runtime** — Required to execute the source monitoring tool. Install via `curl -fsSL https://bun.sh/install | bash`
