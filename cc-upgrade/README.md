@@ -1,140 +1,138 @@
 # cc-upgrade
 
-A Claude Code plugin that monitors the Anthropic ecosystem and generates prioritized upgrade recommendations for your setup.
+Anthropic 생태계를 모니터링하고, 내 Claude Code 환경에 맞는 업그레이드 추천을 생성하는 플러그인입니다.
 
-## What it does
+## 이런 걸 해줍니다
 
-Keeping up with Claude Code updates, MCP changes, new SDK features, and documentation updates is a lot of work. This plugin automates it:
+Claude Code 업데이트, MCP 변경, SDK 신기능, 문서 업데이트를 일일이 따라가기 힘들죠? 이 플러그인이 자동으로 해줍니다:
 
-- Monitors **30+ sources**: Claude Code releases, MCP updates, skills repo, SDK releases, changelogs, documentation, blogs
-- **Hash-based change detection** — only reports what's actually new since your last check
-- **Priority scoring** — categorizes findings as CRITICAL / HIGH / MEDIUM / LOW based on your current setup
-- **Technique extraction** — pulls specific code patterns and actionable changes, not vague summaries
-- **Local delta awareness** — filters out things you've already implemented
+- **30개 이상의 소스 모니터링**: Claude Code 릴리스, MCP 업데이트, Skills 레포, SDK 릴리스, 체인지로그, 문서, 블로그
+- **해시 기반 변경 감지** — 마지막 체크 이후 실제로 바뀐 것만 알려줌
+- **우선순위 분류** — 내 환경 기준으로 CRITICAL / HIGH / MEDIUM / LOW 분류
+- **기술 추출** — 막연한 요약이 아니라 구체적인 코드 패턴과 액션을 뽑아줌
+- **이미 적용한 건 제외** — 내가 이미 구현한 건 걸러줌
 
-## Installation
+## 설치 방법
 
-### Prerequisites
+### 사전 준비
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and working
-- [Bun](https://bun.sh) runtime — required for the source monitoring tool
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)가 설치되어 있어야 합니다
+- [Bun](https://bun.sh) 런타임 — 소스 모니터링 도구 실행에 필요
   ```bash
-  # Install Bun if you don't have it
+  # Bun이 없다면 설치
   curl -fsSL https://bun.sh/install | bash
   ```
-- **GitHub token** (recommended) — without it, GitHub API is limited to 60 requests/hour. With 9+ repos to check, you may hit rate limits.
+- **GitHub 토큰** (권장) — 없으면 GitHub API가 시간당 60회로 제한됩니다. 9개 이상의 레포를 체크하므로 금방 한도에 걸릴 수 있습니다.
 
-### Step 1: Clone the repo
+### 1단계: 레포 클론
 
 ```bash
 git clone https://github.com/tjkang/cc-plugins.git
 cd cc-plugins
 ```
 
-### Step 2: Launch Claude Code with the plugin
+### 2단계: 플러그인을 로드해서 Claude Code 실행
 
 ```bash
 claude --plugin-dir ./cc-upgrade
 ```
 
-Or with an absolute path:
+절대 경로로도 가능합니다:
 
 ```bash
 claude --plugin-dir ~/cc-plugins/cc-upgrade
 ```
 
-> **Tip:** To always load the plugin, add an alias to your shell config (`~/.zshrc` or `~/.bashrc`):
+> **팁:** 매번 입력하기 귀찮으면 셸 설정(`~/.zshrc` 또는 `~/.bashrc`)에 alias를 추가하세요:
 > ```bash
 > alias claude='claude --plugin-dir ~/cc-plugins/cc-upgrade'
 > ```
 
-### Step 3: (Recommended) Set GitHub token
+### 3단계: GitHub 토큰 설정 (권장)
 
-To avoid API rate limits, set your GitHub token. You can create a token at [github.com/settings/tokens](https://github.com/settings/tokens) (no special scopes needed — `public_repo` read access is sufficient).
+API 속도 제한을 피하려면 GitHub 토큰을 설정하세요. [github.com/settings/tokens](https://github.com/settings/tokens)에서 만들 수 있습니다 (특별한 권한 불필요 — `public_repo` 읽기 권한이면 충분).
 
-Add to your shell profile (`~/.zshrc` or `~/.bashrc`):
+셸 설정(`~/.zshrc` 또는 `~/.bashrc`)에 추가:
 
 ```bash
-export GITHUB_TOKEN="ghp_your_token_here"
+export GITHUB_TOKEN="ghp_여기에_토큰_입력"
 ```
 
-Or add it to Claude Code settings so it's available in sessions.
+### 4단계: 확인
 
-### Step 4: Verify
-
-Open Claude Code and run:
+Claude Code를 열고 실행:
 
 ```
 /cc-upgrade
 ```
 
-You should see a prioritized report of recent Anthropic ecosystem changes.
+최근 Anthropic 생태계 변경사항이 우선순위별로 출력되면 성공입니다.
 
-## Usage
+## 사용법
 
-### Slash command
+### 슬래시 커맨드
 
 ```
-/cc-upgrade         # Check last 7 days (default)
-/cc-upgrade 14      # Check last 14 days
-/cc-upgrade 30      # Check last 30 days
+/cc-upgrade         # 최근 7일 체크 (기본값)
+/cc-upgrade 14      # 최근 14일 체크
+/cc-upgrade 30      # 최근 30일 체크
 ```
 
-### Natural language (skill trigger)
+### 자연어로도 동작 (스킬 트리거)
 
-The plugin also activates when you say things like:
+이런 식으로 말해도 플러그인이 자동으로 실행됩니다:
 
-- "Check for Claude Code updates"
-- "Any new MCP changes?"
-- "What's new in the Anthropic ecosystem?"
-- "Check for breaking changes"
+- "Claude Code 업데이트 확인해줘"
+- "MCP 바뀐 거 있어?"
+- "Anthropic 생태계 최신 변경사항 알려줘"
+- "breaking change 있는지 확인해줘"
 
-### Direct tool execution
+### 터미널에서 직접 실행
 
-You can also run the monitoring tool directly from your terminal:
+Claude Code 세션 밖에서 모니터링 도구를 직접 실행할 수도 있습니다:
 
 ```bash
-# Check last 7 days
-bun /path/to/cc-plugins/cc-upgrade/tools/check-sources.ts
+# 최근 7일 체크
+bun ~/cc-plugins/cc-upgrade/tools/check-sources.ts
 
-# Check last 30 days
-bun /path/to/cc-plugins/cc-upgrade/tools/check-sources.ts 30
+# 최근 30일 체크
+bun ~/cc-plugins/cc-upgrade/tools/check-sources.ts 30
 
-# Force re-check all sources (ignores cached state)
-bun /path/to/cc-plugins/cc-upgrade/tools/check-sources.ts --force
+# 캐시 무시하고 전체 다시 체크
+bun ~/cc-plugins/cc-upgrade/tools/check-sources.ts --force
 ```
 
-## How it works
+## 동작 방식
 
-When you run `/cc-upgrade`, the plugin:
+`/cc-upgrade`를 실행하면 플러그인이 이렇게 동작합니다:
 
-1. **Analyzes your setup** — reads your CLAUDE.md, package.json, and recent git history to understand your current stack
-2. **Checks 30+ sources** — fetches updates from GitHub repos, changelogs, blogs, and documentation in parallel
-3. **Filters and prioritizes** — removes irrelevant items and things you've already implemented, then scores by impact
-4. **Generates a report** — outputs actionable recommendations with code examples, organized by priority
+1. **내 환경 분석** — CLAUDE.md, package.json, 최근 git 히스토리를 읽어서 현재 스택 파악
+2. **30개 이상 소스 체크** — GitHub 레포, 체인지로그, 블로그, 문서를 병렬로 조회
+3. **필터링 + 우선순위 부여** — 내 환경에 관련 없는 항목과 이미 적용한 건 제거, 영향도 기준 정렬
+4. **리포트 생성** — 코드 예시와 함께 우선순위별 액션 추천 출력
 
-## Sources monitored
+## 모니터링 소스
 
-| Category | Count | Examples |
-|----------|-------|---------|
-| Blogs | 4 | Anthropic News, Alignment Science, Research, Transformer Circuits |
-| GitHub Repos | 9 | claude-code, skills, MCP spec/docs, cookbooks, SDKs, courses |
-| Changelogs | 4 | Claude Code, Claude Docs, API, MCP |
-| Documentation | 6 | Claude Docs, API Docs, MCP Docs/Spec/Registry, Skills Docs |
-| Community | 1 | Claude Developers Discord (manual) |
+| 카테고리 | 개수 | 예시 |
+|----------|------|------|
+| 블로그 | 4 | Anthropic News, Alignment Science, Research, Transformer Circuits |
+| GitHub 레포 | 9 | claude-code, skills, MCP spec/docs, cookbooks, SDKs, courses |
+| 체인지로그 | 4 | Claude Code, Claude Docs, API, MCP |
+| 문서 | 6 | Claude Docs, API Docs, MCP Docs/Spec/Registry, Skills Docs |
+| 커뮤니티 | 1 | Claude Developers Discord (수동) |
 
-## Customization
+## 커스터마이징
 
-### Adding your own sources
+### 내 소스 추가하기
 
-You can add internal repos, team blogs, or other sources to monitor:
+사내 레포, 팀 블로그 등 모니터링할 소스를 추가할 수 있습니다:
 
 ```bash
-# Copy the default sources as a starting point
-cp /path/to/cc-plugins/cc-upgrade/skills/upgrade/sources.json ~/.claude/cc-upgrade-sources.json
+# 기본 소스 파일을 복사해서 시작
+cp ~/cc-plugins/cc-upgrade/skills/upgrade/sources.json ~/.claude/cc-upgrade-sources.json
 ```
 
-Then edit `~/.claude/cc-upgrade-sources.json`:
+`~/.claude/cc-upgrade-sources.json`을 편집:
 
 ```json
 {
@@ -151,18 +149,18 @@ Then edit `~/.claude/cc-upgrade-sources.json`:
 }
 ```
 
-### State and logs
+### 상태 파일과 로그
 
-- **State file**: `~/.claude/cc-upgrade.state.json` — tracks what's been seen (persists across plugin updates)
-- **Run history**: `~/.claude/cc-upgrade.log.jsonl` — logs each check with counts
+- **상태 파일**: `~/.claude/cc-upgrade.state.json` — 이미 본 항목을 추적 (플러그인 업데이트해도 유지됨)
+- **실행 기록**: `~/.claude/cc-upgrade.log.jsonl` — 매번 체크한 결과의 우선순위별 건수 기록
 
-These files are created automatically on first run. You can safely delete them to reset state.
+첫 실행 시 자동 생성됩니다. 초기화하고 싶으면 삭제하면 됩니다.
 
-## Uninstalling
+## 제거
 
-Simply remove the `--plugin-dir` flag from your launch command or alias.
+실행 명령에서 `--plugin-dir` 플래그를 빼면 됩니다 (alias를 설정했다면 alias에서 제거).
 
-To also clean up state files:
+상태 파일도 정리하려면:
 
 ```bash
 rm ~/.claude/cc-upgrade.state.json ~/.claude/cc-upgrade.log.jsonl

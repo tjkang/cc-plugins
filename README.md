@@ -1,69 +1,69 @@
 # cc-plugins
 
-A collection of [Claude Code](https://docs.anthropic.com/en/docs/claude-code) plugins for productivity and ecosystem monitoring.
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) 플러그인 모음집입니다.
 
-## What are Claude Code Plugins?
+## Claude Code 플러그인이란?
 
-Claude Code plugins extend Claude Code with custom slash commands, skills, and tools. Once installed, they integrate directly into your Claude Code sessions — no extra setup needed.
+Claude Code 플러그인은 슬래시 커맨드, 스킬, 도구를 추가해서 Claude Code의 기능을 확장합니다. 설치하면 Claude Code 세션에서 바로 사용할 수 있습니다.
 
-## Plugins
+## 플러그인 목록
 
-| Plugin | Description | Status |
-|--------|-------------|--------|
-| [cc-upgrade](./cc-upgrade/) | Monitor Anthropic ecosystem changes and get prioritized upgrade recommendations | v0.1.0 |
+| 플러그인 | 설명 | 버전 |
+|----------|------|------|
+| [cc-upgrade](./cc-upgrade/) | Anthropic 생태계 변경사항 모니터링 + 업그레이드 추천 | v0.1.0 |
 
-## Prerequisites
+## 사전 준비
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and working
-- [Bun](https://bun.sh) runtime (some plugins use Bun for tool execution)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)가 설치되어 있어야 합니다
+- [Bun](https://bun.sh) 런타임 (일부 플러그인의 도구 실행에 필요)
 
-## Installation
+## 설치 방법
 
-### 1. Clone this repo
+### 1. 레포 클론
 
 ```bash
 git clone https://github.com/tjkang/cc-plugins.git
 ```
 
-### 2. Launch Claude Code with the plugin
+### 2. 플러그인을 로드해서 Claude Code 실행
 
-Each plugin lives in its own directory. Load it with the `--plugin-dir` flag:
+각 플러그인은 독립된 디렉토리입니다. `--plugin-dir` 플래그로 로드합니다:
 
 ```bash
-# Load the cc-upgrade plugin
+# cc-upgrade 플러그인 로드
 claude --plugin-dir /path/to/cc-plugins/cc-upgrade
 ```
 
-For example, if you cloned to your home directory:
+예를 들어 홈 디렉토리에 클론했다면:
 
 ```bash
 claude --plugin-dir ~/cc-plugins/cc-upgrade
 ```
 
-> **Tip:** To always load the plugin, add an alias to your shell config (`~/.zshrc` or `~/.bashrc`):
+> **팁:** 매번 입력하기 귀찮으면 셸 설정(`~/.zshrc` 또는 `~/.bashrc`)에 alias를 추가하세요:
 > ```bash
 > alias claude='claude --plugin-dir ~/cc-plugins/cc-upgrade'
 > ```
 
-### 3. Verify
+### 3. 확인
 
-Inside the Claude Code session, type:
+Claude Code 세션 안에서 입력:
 
 ```
 /cc-upgrade
 ```
 
-If the command is recognized, you're good to go.
+커맨드가 인식되면 설치 완료입니다.
 
-## Contributing
+## 기여하기
 
-Want to add a plugin? Each plugin should be a self-contained directory with:
+플러그인을 추가하려면 아래 구조의 독립 디렉토리를 만들어주세요:
 
-- `.claude-plugin/plugin.json` — Plugin manifest
-- `README.md` — Usage docs
-- `commands/` — Slash commands (optional)
-- `skills/` — Skills (optional)
-- `tools/` — Tool scripts (optional)
+- `.claude-plugin/plugin.json` — 플러그인 매니페스트
+- `README.md` — 사용 설명서
+- `commands/` — 슬래시 커맨드 (선택)
+- `skills/` — 스킬 (선택)
+- `tools/` — 도구 스크립트 (선택)
 
 ## License
 
