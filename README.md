@@ -19,35 +19,37 @@ Claude Code 플러그인은 슬래시 커맨드, 스킬, 도구를 추가해서 
 
 ## 설치 방법
 
-### 1. 레포 클론
+### 방법 1: 마켓플레이스로 설치 (추천)
+
+git clone 없이 CLI로 바로 설치합니다. 자동 업데이트도 지원됩니다.
+
+```bash
+# 1. 마켓플레이스 등록
+claude plugin marketplace add https://github.com/tjkang/cc-plugins
+
+# 2. 원하는 플러그인 설치 (글로벌)
+claude plugin install cc-upgrade@tjkang-cc-plugins --scope user
+```
+
+설치 후 모든 Claude Code 세션에서 자동 로드됩니다. 레포에 업데이트가 push되면 자동 반영됩니다.
+
+### 방법 2: 로컬 클론으로 설치
+
+직접 소스를 관리하고 싶다면 클론 후 `--plugin-dir`로 로드합니다:
 
 ```bash
 git clone https://github.com/tjkang/cc-plugins.git
-```
-
-### 2. 플러그인을 로드해서 Claude Code 실행
-
-각 플러그인은 독립된 디렉토리입니다. `--plugin-dir` 플래그로 로드합니다:
-
-```bash
-# cc-upgrade 플러그인 로드
-claude --plugin-dir /path/to/cc-plugins/cc-upgrade
-```
-
-예를 들어 홈 디렉토리에 클론했다면:
-
-```bash
 claude --plugin-dir ~/cc-plugins/cc-upgrade
 ```
 
-> **팁:** 매번 입력하기 귀찮으면 셸 설정(`~/.zshrc` 또는 `~/.bashrc`)에 alias를 추가하세요:
+> **팁:** 매번 입력하기 귀찮으면 셸 설정에 alias를 추가하세요:
 > ```bash
 > alias claude='claude --plugin-dir ~/cc-plugins/cc-upgrade'
 > ```
 
-### 3. 확인
+### 확인
 
-Claude Code 세션 안에서 입력:
+Claude Code 세션에서 입력:
 
 ```
 /cc-upgrade

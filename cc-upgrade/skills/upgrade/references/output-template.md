@@ -64,6 +64,30 @@ Everything interesting found, ranked by how compelling it is.
 
 ---
 
+## Actionable Items
+
+Concrete changes derived from comparing recommendations against current setup.
+
+### Apply Now (safe, high impact)
+
+| # | Action | File | Change | Risk |
+|---|--------|------|--------|------|
+| 1 | [Short action name] | `[file path]` | [Before → After, or "Add: ..."] | None / Low |
+
+### Test First (verify before applying)
+
+| # | Action | File | Change | Risk |
+|---|--------|------|--------|------|
+| 1 | [Short action name] | `[file path]` | [Before → After] | [What could break] |
+
+### Awareness Only (no config change needed)
+
+| # | Item | Why No Action |
+|---|------|---------------|
+| 1 | [name] | [Already implemented / Not applicable to current stack] |
+
+---
+
 ## Skipped Content
 
 | Content | Source | Why Skipped |

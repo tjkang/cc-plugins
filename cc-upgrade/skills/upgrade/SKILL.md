@@ -72,7 +72,34 @@ For each discovery from the source check:
 4. **Extract techniques** — Pull specific code patterns, not summaries
 5. **List all updates without filtering by user context** is an anti-pattern — always apply Step 1 context
 
-### Step 4: Output Report
+### Step 4: Derive Actionable Items
+
+For each HIGH/CRITICAL recommendation from Step 3, analyze the user's **current configuration** to produce concrete actions:
+
+1. **Read current state** — Check relevant files based on the recommendation type:
+   - Settings: `~/.claude/settings.json`, `~/.claude/settings.local.json`
+   - Hooks: grep for hook configurations in settings files
+   - Skills: `ls ~/.claude/skills/` or plugin skill directories
+   - MCP: `.mcp.json` in project root and `~/.claude/.mcp.json`
+   - Dependencies: `package.json`, lock files
+
+2. **Gap analysis** — For each recommendation, compare:
+   - What the update enables vs. what the user currently has configured
+   - Whether the user already has an equivalent or partial implementation
+   - If the update supersedes or conflicts with existing configuration
+
+3. **Generate concrete actions** — Each action must include:
+   - **What to change** — Specific file path and section
+   - **Before/After** — Current value → recommended value (or "add this" if new)
+   - **Risk** — Can this break existing behavior? Is it reversible?
+   - **Priority** — Apply now (safe, high impact) vs. test first (breaking change possible)
+
+4. **Skip honestly** — If a recommendation requires no config change (awareness only), say so explicitly. Don't fabricate actions.
+
+**Anti-pattern:** "Consider adding MCP server X" without checking if it's already configured.
+**Correct:** Read `.mcp.json` → "MCP server X is not configured. Add to `.mcp.json`: `{...}`"
+
+### Step 5: Output Report
 
 Generate the report following the format in `references/output-template.md`.
 

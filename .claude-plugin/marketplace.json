@@ -1,0 +1,22 @@
+{
+  "name": "tjkang-cc-plugins",
+  "owner": {
+    "name": "TJ Kang"
+  },
+  "plugins": [
+    {
+      "name": "cc-upgrade",
+      "description": "Monitor Anthropic ecosystem changes and get prioritized upgrade recommendations for your Claude Code setup",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/tjkang/cc-plugins.git",
+        "path": "cc-upgrade"
+      },
+      "version": "0.1.0",
+      "author": { "name": "TJ Kang" },
+      "homepage": "https://github.com/tjkang/cc-plugins",
+      "repository": "https://github.com/tjkang/cc-plugins",
+      "license": "MIT"
+    }
+  ]
+}
