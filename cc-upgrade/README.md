@@ -31,17 +31,22 @@ git clone https://github.com/tjkang/cc-plugins.git
 cd cc-plugins
 ```
 
-### Step 2: Install the plugin
+### Step 2: Launch Claude Code with the plugin
 
 ```bash
-claude plugin add ./cc-upgrade
+claude --plugin-dir ./cc-upgrade
 ```
 
 Or with an absolute path:
 
 ```bash
-claude plugin add ~/cc-plugins/cc-upgrade
+claude --plugin-dir ~/cc-plugins/cc-upgrade
 ```
+
+> **Tip:** To always load the plugin, add an alias to your shell config (`~/.zshrc` or `~/.bashrc`):
+> ```bash
+> alias claude='claude --plugin-dir ~/cc-plugins/cc-upgrade'
+> ```
 
 ### Step 3: (Recommended) Set GitHub token
 
@@ -155,9 +160,7 @@ These files are created automatically on first run. You can safely delete them t
 
 ## Uninstalling
 
-```bash
-claude plugin remove cc-upgrade
-```
+Simply remove the `--plugin-dir` flag from your launch command or alias.
 
 To also clean up state files:
 

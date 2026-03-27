@@ -27,6 +27,6 @@ cc-plugins/
 # 플러그인 도구 테스트
 bun cc-upgrade/tools/check-sources.ts [days] [--force]
 
-# 로컬 설치 테스트
-claude plugin add /path/to/cc-plugins/cc-upgrade
+# 로컬 플러그인 로드 테스트
+claude --plugin-dir /path/to/cc-plugins/cc-upgrade
 ```

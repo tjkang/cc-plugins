@@ -25,37 +25,35 @@ Claude Code plugins extend Claude Code with custom slash commands, skills, and t
 git clone https://github.com/tjkang/cc-plugins.git
 ```
 
-### 2. Install the plugin you want
+### 2. Launch Claude Code with the plugin
 
-Each plugin lives in its own directory. Install by pointing Claude Code to it:
+Each plugin lives in its own directory. Load it with the `--plugin-dir` flag:
 
 ```bash
-# Install cc-upgrade plugin
-claude plugin add /path/to/cc-plugins/cc-upgrade
+# Load the cc-upgrade plugin
+claude --plugin-dir /path/to/cc-plugins/cc-upgrade
 ```
 
 For example, if you cloned to your home directory:
 
 ```bash
-claude plugin add ~/cc-plugins/cc-upgrade
+claude --plugin-dir ~/cc-plugins/cc-upgrade
 ```
 
-### 3. Verify installation
+> **Tip:** To always load the plugin, add an alias to your shell config (`~/.zshrc` or `~/.bashrc`):
+> ```bash
+> alias claude='claude --plugin-dir ~/cc-plugins/cc-upgrade'
+> ```
 
-Open Claude Code and check:
+### 3. Verify
 
-```bash
-claude
-# Then type: /cc-upgrade
+Inside the Claude Code session, type:
+
+```
+/cc-upgrade
 ```
 
 If the command is recognized, you're good to go.
-
-## Uninstalling
-
-```bash
-claude plugin remove cc-upgrade
-```
 
 ## Contributing
 
