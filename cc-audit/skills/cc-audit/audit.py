@@ -9,6 +9,7 @@ SKILL.md(.claude/skills/cc-audit/SKILL.md)와 함께 사용.
   python3 audit.py            # 사람이 읽는 리포트
   python3 audit.py --json     # 머신이 읽는 JSON 리포트
   python3 audit.py --window 14d   # 윈도우 변경 (기본: 30d, 권장 30일 이상)
+  python3 audit.py --all-projects  # 전체 프로젝트 transcript 합산 스캔
 """
 import json
 import os
@@ -44,6 +45,18 @@ def find_transcripts():
     project_slug = str(PROJECT).replace("/", "-")
     candidate = HOME / ".claude" / "projects" / project_slug
     return candidate if candidate.exists() else None
+
+
+def find_all_transcripts():
+    """모든 프로젝트의 transcript 디렉토리 반환.
+
+    --all-projects 사용 시 ~/.claude/projects/ 하위 전체를 스캔.
+    플러그인/에이전트는 글로벌이므로 전체 합산이 정확하다.
+    """
+    projects_dir = HOME / ".claude" / "projects"
+    if not projects_dir.exists():
+        return []
+    return [d for d in projects_dir.iterdir() if d.is_dir()]
 
 
 def collect_invocations(transcript_dir, window_days):
@@ -362,17 +375,40 @@ def main():
         return
 
     window_days = parse_window(args)
-    transcript_dir = find_transcripts()
-    if not transcript_dir:
-        sys.stderr.write(
-            "❌ 현재 프로젝트의 transcript 디렉토리를 찾을 수 없습니다.\n"
-            f"   기대 위치: ~/.claude/projects/<project-slug>/\n"
-            f"   현재 cwd : {PROJECT}\n"
-        )
-        sys.exit(1)
+    all_projects = "--all-projects" in args or "--all" in args
 
-    sys.stderr.write(f"📊 데이터 수집 중 ({window_days}일 윈도우)...\n")
-    invocations = collect_invocations(transcript_dir, window_days)
+    if all_projects:
+        transcript_dirs = find_all_transcripts()
+        if not transcript_dirs:
+            sys.stderr.write("❌ ~/.claude/projects/ 에 프로젝트가 없습니다.\n")
+            sys.exit(1)
+        sys.stderr.write(
+            f"📊 전체 프로젝트 스캔 ({len(transcript_dirs)}개, {window_days}일 윈도우)...\n"
+        )
+        merged = None
+        for td in transcript_dirs:
+            inv = collect_invocations(td, window_days)
+            if merged is None:
+                merged = inv
+            else:
+                merged["session_count"] += inv["session_count"]
+                merged["file_count"] += inv["file_count"]
+                merged["subagents"] += inv["subagents"]
+                merged["skills"] += inv["skills"]
+                merged["tools"] += inv["tools"]
+        invocations = merged
+    else:
+        transcript_dir = find_transcripts()
+        if not transcript_dir:
+            sys.stderr.write(
+                "❌ 현재 프로젝트의 transcript 디렉토리를 찾을 수 없습니다.\n"
+                f"   기대 위치: ~/.claude/projects/<project-slug>/\n"
+                f"   현재 cwd : {PROJECT}\n"
+                "   💡 글로벌 감사는 --all-projects 옵션을 사용하세요.\n"
+            )
+            sys.exit(1)
+        sys.stderr.write(f"📊 데이터 수집 중 ({window_days}일 윈도우)...\n")
+        invocations = collect_invocations(transcript_dir, window_days)
     sys.stderr.write("📦 settings.json + 에이전트 파일 스캔 중...\n")
     plugins = list_enabled_plugins()
     agents = list_agents()
