@@ -3,3 +3,5 @@ node_modules/
 *.state.json
 *.log.jsonl
 .context.md
+__pycache__/
+*.pyc

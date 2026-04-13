@@ -17,6 +17,20 @@
       "homepage": "https://github.com/tjkang/cc-plugins",
       "repository": "https://github.com/tjkang/cc-plugins",
       "license": "MIT"
+    },
+    {
+      "name": "cc-audit",
+      "description": "Audit Claude Code setup with 30-day usage data, identify dead-weight plugins/agents, and clean up safely with backup + approval gates",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/tjkang/cc-plugins.git",
+        "path": "cc-audit"
+      },
+      "version": "0.1.0",
+      "author": { "name": "TJ Kang" },
+      "homepage": "https://github.com/tjkang/cc-plugins",
+      "repository": "https://github.com/tjkang/cc-plugins",
+      "license": "MIT"
     }
   ]
 }
