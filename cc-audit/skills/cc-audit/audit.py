@@ -172,22 +172,30 @@ def parse_agent(path):
     }
 
 
-def count_references(name, search_dirs):
-    """워크플로우 스킬 등에서 에이전트 이름 참조 검색 (자기 자신 제외)."""
+REFERENCE_FILE_PATTERNS = ("*.md", "*.js", "*.json", "*.yaml", "*.yml")
+
+
+def count_references(name, search_dirs, file_patterns=REFERENCE_FILE_PATTERNS):
+    """스킬, 커맨드, 매니페스트 등에서 에이전트 이름 참조 검색 (자기 자신 제외).
+
+    .md만 보면 .claude/commands/ 의 슬래시 커맨드 정의나 *.js/*.json 매니페스트에서
+    간접 참조하는 케이스를 놓쳐 false positive 발생 (활성 에이전트가 safe_delete로
+    분류). 파일 패턴 확장으로 방지.
+    """
     refs = 0
     for d in search_dirs:
         if not d.exists():
             continue
-        for f in d.rglob("*.md"):
-            try:
-                text = f.read_text(encoding="utf-8", errors="ignore")
-                # 자기 정의 파일은 제외
-                if f.stem == name:
-                    continue
-                if name in text:
-                    refs += 1
-            except Exception:
-                pass
+        for pattern in file_patterns:
+            for f in d.rglob(pattern):
+                try:
+                    if f.stem == name:
+                        continue
+                    text = f.read_text(encoding="utf-8", errors="ignore")
+                    if name in text:
+                        refs += 1
+                except Exception:
+                    pass
     return refs
 
 
@@ -246,7 +254,14 @@ def classify(invocations, plugins, agents):
             )
             ref_count = count_references(
                 info["name"],
-                [PROJECT / ".claude" / "skills", PROJECT / ".claude" / "agents"],
+                [
+                    PROJECT / ".claude" / "skills",
+                    PROJECT / ".claude" / "agents",
+                    PROJECT / ".claude" / "commands",
+                    HOME / ".claude" / "skills",
+                    HOME / ".claude" / "agents",
+                    HOME / ".claude" / "commands",
+                ],
             )
             if replacements_exist and ref_count == 0:
                 safe_delete.append({
