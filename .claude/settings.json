@@ -1,0 +1,9 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      { "matcher": "Bash", "hooks": [
+        { "type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR/hooks/backlog-autosync.sh\"", "timeout": 60 }
+      ]}
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "project": "cc-plugins",
+  "schema": {
+    "status_enum": [
+      "todo",
+      "in-progress",
+      "read-info",
+      "blocked",
+      "done",
+      "cancelled"
+    ],
+    "priority_enum": [
+      "P0",
+      "P1",
+      "P2",
+      "P3"
+    ],
+    "delegate_enum": []
+  },
+  "tasks": []
+}
