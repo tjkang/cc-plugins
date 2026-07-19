@@ -243,12 +243,15 @@ try {
       // 소싱하고, delegate만 이 repo의 파일 값을 반영한다(per-repo). 손 편집/degraded 파일에도 throw 금지.
       const fileExists = existsSync(BACKLOG_FILE);
       let delegateEnum: string[] = [];
+      let fileReadable = true;
       if (fileExists) {
         try {
           const raw = readBacklogRaw(BACKLOG_FILE).schema?.delegate_enum;
-          if (Array.isArray(raw)) delegateEnum = raw;
+          // 광고 스키마는 string[] — 손상 파일의 비-문자열 원소는 fail-closed로 제외(계약 보존, codex).
+          if (Array.isArray(raw)) delegateEnum = raw.filter((x): x is string => typeof x === "string");
         } catch {
-          delegateEnum = [];
+          // read/parse 실패는 "위임 비활성(빈 목록)"과 구분되게 표시(codex) — no-throw는 유지.
+          fileReadable = false;
         }
       }
       console.log(
@@ -259,6 +262,7 @@ try {
             purpose: "project-backlog.json 전용 인터페이스 — AI는 JSON 통째 read 대신 이 CLI로 쿼리/변경한다 (손 편집 금지)",
             backlog_file: BACKLOG_FILE,
             file_exists: fileExists,
+            backlog_readable: fileReadable,
             enums: {
               status: [...STATUS_ENUM],
               priority: [...PRIORITY_ENUM],
