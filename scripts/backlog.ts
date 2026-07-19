@@ -16,6 +16,8 @@ import {
   setTask,
   validate,
   withFileLock,
+  PRIORITY_ENUM,
+  STATUS_ENUM,
   type Backlog,
   type Task,
 } from "./backlog-core.js";
@@ -57,10 +59,53 @@ const { values: flags, positionals: positional } = parseArgs({
   },
 });
 
+// 명령 스펙 단일 소스 — agent-context(Trevin #7)가 이걸 그대로 방출한다. positionals는 MAX_POSITIONALS로
+// 파생돼 실 게이트(rejectExtraPositionals)와 한 소스이고(테스트로 pin), enum은 코어 정본에서 소싱된다 —
+// 이 둘은 구조적으로 drift 불가. 단 required/optional_flags 목록은 parseArgs options에서 자동 파생하지
+// 않는 advisory 문서라 수동 유지한다(현재는 수동 대조로 options의 부분집합; 자동 가드는 미도입 — 솔로 경량 repo YAGNI).
+interface CommandSpec {
+  summary: string;
+  positionals: number;
+  positional_desc?: string;
+  required_flags: string[];
+  optional_flags: string[];
+}
+const COMMAND_SPEC: Record<string, CommandSpec> = {
+  init: { summary: "새 백로그 파일 생성", positionals: 0, required_flags: [], optional_flags: ["project"] },
+  add: {
+    summary: "태스크 등록 (id T-NNN 자동 채번)",
+    positionals: 0,
+    required_flags: ["title", "priority"],
+    optional_flags: ["category", "deps", "doc", "note", "parent", "delegate", "gate-reason", "gate-until"],
+  },
+  set: {
+    summary: "태스크 상태/필드 변경 (완료는 --status done --evidence)",
+    positionals: 1,
+    positional_desc: "<id>",
+    required_flags: [],
+    optional_flags: ["status", "priority", "evidence", "note", "delegate", "deps", "gate-reason", "gate-until"],
+  },
+  check: { summary: "스키마·참조 무결성 검증", positionals: 0, required_flags: [], optional_flags: [] },
+  list: {
+    summary: "태스크 조회 (필터 가능)",
+    positionals: 0,
+    required_flags: [],
+    optional_flags: ["status", "priority", "actionable", "json"],
+  },
+  "agent-context": {
+    summary: "이 CLI의 머신 스키마를 JSON으로 출력 — 에이전트가 enum·필수필드를 자기발견 (Trevin #7)",
+    positionals: 0,
+    required_flags: [],
+    optional_flags: [],
+  },
+};
+
 // 명령별 허용 positional 개수 — 잉여 인자를 조용히 드롭하지 않고 거부한다 (T-017).
 // parseArgs는 미지 --flag는 이미 throw하지만 잉여 positional은 통과시켜, 오타·오용이
-// 의도와 다르게 silent 성공하던 갭을 닫는다. (set만 <id> 1개, 나머지는 0개)
-const MAX_POSITIONALS: Record<string, number> = { init: 0, add: 0, check: 0, list: 0, set: 1 };
+// 의도와 다르게 silent 성공하던 갭을 닫는다. COMMAND_SPEC에서 파생 (단일 소스).
+const MAX_POSITIONALS: Record<string, number> = Object.fromEntries(
+  Object.entries(COMMAND_SPEC).map(([k, v]) => [k, v.positionals])
+);
 
 function rejectExtraPositionals(): void {
   if (!cmd || !(cmd in MAX_POSITIONALS)) return; // 미지 cmd는 아래 switch default가 usage 처리
@@ -193,8 +238,54 @@ try {
       }
       break;
     }
+    case "agent-context": {
+      // 에이전트 자기발견용 머신 스키마 — 파일이 없어도(신선한 clone) 동작한다. enum은 코어 정본에서
+      // 소싱하고, delegate만 이 repo의 파일 값을 반영한다(per-repo). 손 편집/degraded 파일에도 throw 금지.
+      const fileExists = existsSync(BACKLOG_FILE);
+      let delegateEnum: string[] = [];
+      if (fileExists) {
+        try {
+          const raw = readBacklogRaw(BACKLOG_FILE).schema?.delegate_enum;
+          if (Array.isArray(raw)) delegateEnum = raw;
+        } catch {
+          delegateEnum = [];
+        }
+      }
+      console.log(
+        JSON.stringify(
+          {
+            cli: "backlog",
+            version: 1,
+            purpose: "project-backlog.json 전용 인터페이스 — AI는 JSON 통째 read 대신 이 CLI로 쿼리/변경한다 (손 편집 금지)",
+            backlog_file: BACKLOG_FILE,
+            file_exists: fileExists,
+            enums: {
+              status: [...STATUS_ENUM],
+              priority: [...PRIORITY_ENUM],
+              delegate: delegateEnum,
+            },
+            commands: COMMAND_SPEC,
+            conventions: {
+              output: "성공 결과는 stdout, 진단/경고/에러는 stderr",
+              exit_codes: { "0": "성공", "1": "usage 오류 · 무결성 실패 · mutation 거부" },
+              notes: [
+                "완료 처리(status=done)에는 --evidence가 필수다",
+                "project-backlog.json 손 편집 금지 — 모든 변경은 이 CLI로",
+                "id(T-NNN)는 add 시 자동 채번; 하위 태스크는 --parent T-NNN → T-NNN.N",
+                "delegate는 이 백로그의 schema.delegate_enum에 정의된 값만 허용 (비면 위임 비활성)",
+              ],
+            },
+          },
+          null,
+          2
+        )
+      );
+      break;
+    }
     default:
-      console.error("usage: backlog <init|add|set|check|list>\n  list [--status S] [--priority P] [--actionable] [--json]");
+      console.error(
+        `usage: backlog <${Object.keys(COMMAND_SPEC).join("|")}>\n  list [--status S] [--priority P] [--actionable] [--json]\n  agent-context  # 에이전트용 머신 스키마(JSON)`
+      );
       process.exit(1);
   }
 } catch (e) {
