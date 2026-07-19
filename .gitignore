@@ -5,3 +5,5 @@ node_modules/
 .context.md
 __pycache__/
 *.pyc
+scripts/backlog.ts
+scripts/backlog-core.ts
