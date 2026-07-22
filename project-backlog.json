@@ -17,5 +17,17 @@
     ],
     "delegate_enum": []
   },
-  "tasks": []
+  "tasks": [
+    {
+      "id": "T-001",
+      "title": "CLAUDE.md 구조 트리에 cc-audit/ 누락 — marketplace.json 등재된 2번째 플러그인인데 '(향후 플러그인 추가)'로만 표기",
+      "status": "todo",
+      "priority": "P3",
+      "category": "docs",
+      "deps": [],
+      "created_at": "2026-07-22",
+      "updated_at": "2026-07-22",
+      "note": "2026-07-22 감사. 증거: cc-audit/.claude-plugin/plugin.json EXISTS"
+    }
+  ]
 }
