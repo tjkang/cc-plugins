@@ -86,13 +86,15 @@
     {
       "id": "T-006",
       "title": "cc-audit: 스킬(skills) 분류 부재 — 현행 CC의 최대 토큰 자산이 감사 대상 밖",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "category": "feature",
       "deps": [],
       "created_at": "2026-07-29",
       "updated_at": "2026-07-29",
-      "note": "실측: audit.py classify()는 agents+plugins만 분류. 스킬은 invocation 카운트만 세고 dead-weight 판정 안 함. 이 머신 기준 ~/.claude/skills 63개 + 플러그인 캐시 SKILL.md 1374개. claude plugin init이 ~/.claude/skills/<name>/(=<name>@skills-dir)에 스캐폴드하는 현행 모델과도 어긋남. 참고: transcript 파싱 자체는 건재 — regex vs JSON 교차검증 3377/3377 tool_use, 75/75 subagent, 32/32 skill 완전 일치."
+      "note": "list_skills()(사용자 소유 ~/.claude/skills·프로젝트 .claude/skills의 */SKILL.md만, 플러그인 제공 스킬은 플러그인 토글이 관할하므로 제외) + parse_asset(SKILL.md는 stem이 아니라 부모 디렉토리가 이름) + classify_assets()로 에이전트/스킬 공통 분류. 판별 테스트가 자체 버그를 포착: count_references의 자기제외가 <name>.md 전제라 <name>/SKILL.md는 자기 frontmatter 이름을 자기 참조로 세어 스킬이 구조적으로 🟢에 도달 불가였음 → self_path 경로 제외를 stem 검사와 합집합으로 추가(에이전트 동작 불변 확인). 스킬 0회는 description 매칭 실패일 수 있어 deprecated 검증 없이는 🟢로 안 내림 — SKILL.md에 명시. 실측 참고: ~/.claude/skills의 2개가 심볼릭 링크(migrate-to-codex→_archived, gsap)라 find는 60, glob은 62 — glob이 맞다(둘 다 실제 로드됨).",
+      "done_at": "2026-07-29",
+      "evidence": "라이브 --all-projects 실행: 스킬 62개 분류(review 44 + keep 18, 0회 34개), 에이전트 분류는 22/4로 무변화(회귀 없음). 픽스처 양방향 판별: deprecated+대체존재+참조0 → safe_delete 진입 / 외부 참조 1건 추가 → review로 강등. 빈 HOME에서도 rc=0"
     },
     {
       "id": "T-007",
