@@ -21,13 +21,15 @@
     {
       "id": "T-001",
       "title": "CLAUDE.md 구조 트리에 cc-audit/ 누락 — marketplace.json 등재된 2번째 플러그인인데 '(향후 플러그인 추가)'로만 표기",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "category": "docs",
       "deps": [],
       "created_at": "2026-07-22",
-      "updated_at": "2026-07-22",
-      "note": "2026-07-22 감사. 증거: cc-audit/.claude-plugin/plugin.json EXISTS"
+      "updated_at": "2026-07-29",
+      "note": "2026-07-29 완료. CLAUDE.md 구조 트리에 cc-audit/ + harness-kit 레이어 추가, cc-upgrade 하위경로 정밀화.\n연계 감사(CC 2.1.220 실측)에서 추가 드리프트 발견 → 별도 태스크로 등록.",
+      "done_at": "2026-07-29",
+      "evidence": "grep -n 'cc-audit' CLAUDE.md → 구조 트리 12행에 등재 확인"
     }
   ]
 }
