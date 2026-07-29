@@ -47,13 +47,15 @@
     {
       "id": "T-003",
       "title": "cc-audit SKILL.md의 플러그인 설치 경로가 실존하지 않음 — 문서대로 실행 시 즉시 실패",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "category": "bug",
       "deps": [],
       "created_at": "2026-07-29",
       "updated_at": "2026-07-29",
-      "note": "실측: SKILL.md가 안내하는 ~/.claude/plugins/marketplaces/<marketplace>/cc-audit/skills/cc-audit/audit.py 부재. 실제 설치본은 ~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/skills/cc-audit/audit.py (예: cache/tjkang-cc-plugins/cc-audit/0.1.0/...). cc-upgrade처럼 ${CLAUDE_PLUGIN_ROOT}/skills/cc-audit/audit.py 로 통일할 것."
+      "note": "SKILL.md 1단계를 ${CLAUDE_PLUGIN_ROOT}/skills/cc-audit/audit.py 로 교체하고, 손으로 경로를 적지 말라는 이유(버전 디렉토리가 업데이트마다 바뀜)를 명시. 레포 직접 작업용 상대경로는 폴백으로 유지. 검증 중 별도 결함 발견 → T-009.",
+      "done_at": "2026-07-29",
+      "evidence": "CLAUDE_PLUGIN_ROOT=설치본 경로로 새 문서 명령 실행 rc=0(stats 반환). 대조군: 옛 문서 경로 ls → No such file or directory. CLAUDE_PLUGIN_ROOT는 CC 2.1.220 바이너리 35회 등장 + Anthropic plugin-dev 플러그인도 동일 패턴 사용"
     },
     {
       "id": "T-004",
@@ -111,6 +113,17 @@
       "note": "Update.stateValue 추가 — 재개 지점을 배치 최신(commits[0].sha / releases[0].tag_name)으로 고정. 개별 항목의 sha/version은 식별자로 유지하고 state 기록만 stateValue를 우선. 빈 배열 가드도 추가.",
       "done_at": "2026-07-29",
       "evidence": "동일 2연속 실행에서 run2 GITHUB 29건 → 0건. 저장 sha가 API head와 일치: modelcontextprotocol aa7306efa4dc==aa7306efa4dc, claude-code 7ef6eec9d9ba==7ef6eec9d9ba (둘 다 match=True)"
+    },
+    {
+      "id": "T-009",
+      "title": "배포 위생: plugin.json version이 기능 추가 후에도 0.1.0 고정 + audit.py가 미지 플래그를 조용히 무시 → 설치본이 문서와 다르게 동작",
+      "status": "todo",
+      "priority": "P1",
+      "category": "bug",
+      "deps": [],
+      "created_at": "2026-07-29",
+      "updated_at": "2026-07-29",
+      "note": "T-003 검증 중 발견(2026-07-29). 실측: 설치본 ~/.claude/plugins/cache/tjkang-cc-plugins/cc-audit/0.1.0/skills/cc-audit/audit.py 에 'all-projects' 0회, 레포 현재판 4회. installed sha=51ac7801e7e2(2026-04-13) 이후 cc-audit 커밋 3건(0a6cf2f --all-projects 추가 / 847e498 문서 / 992a7c7 false positive 수정)이 있었으나 plugin.json version은 최초 커밋 aa57f09 이후 계속 0.1.0. 결과: SKILL.md가 --all-projects를 지시하는데 설치본은 그 플래그를 모르고, argparse가 아닌 수동 sys.argv 검사라 에러도 안 난다 → 단일 프로젝트만 스캔 → SKILL.md 자신이 경고하는 false 0-count가 그대로 발생. 조치: (1) cc-audit·cc-upgrade 버전 범프 + marketplace.json 동기(claude plugin tag가 둘의 일치를 검증) (2) audit.py에 미지 플래그 거부 추가 — 조용한 성능저하를 시끄러운 실패로."
     }
   ]
 }
