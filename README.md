@@ -58,7 +58,15 @@ Claude Code 세션에서 입력:
 /cc-audit
 ```
 
-커맨드가 인식되면 설치 완료입니다. 설치된 판을 확인하려면 `claude plugin list`, 구성요소와 토큰 비용은 `claude plugin details <플러그인>`, 갱신은 `claude plugin update <플러그인>`.
+커맨드가 인식되면 설치 완료입니다.
+
+```bash
+claude plugin list                                  # 설치된 판 확인
+claude plugin details cc-audit                      # 구성요소 + 예상 토큰 비용
+claude plugin update cc-audit@tjkang-cc-plugins     # 갱신 (마켓플레이스까지 붙여야 함)
+```
+
+> `update`는 `<플러그인>@<마켓플레이스>` 전체 이름을 요구합니다 — 이름만 주면 "not found"로 실패합니다(`list`·`details`는 이름만으로도 됩니다).
 
 ## 기여하기
 
