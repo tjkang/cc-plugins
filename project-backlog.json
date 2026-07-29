@@ -60,13 +60,15 @@
     {
       "id": "T-004",
       "title": "cc-upgrade sources.json 노후 — 죽은 소스/중복/CC 문서 본진 누락",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "category": "maintenance",
       "deps": [],
       "created_at": "2026-07-29",
       "updated_at": "2026-07-29",
-      "note": "실측 2026-07-29: (1) spec.modelcontextprotocol.io 접속불가(curl 000) (2) docs.claude.com·docs.anthropic.com 둘 다 platform.claude.com/docs로 리다이렉트, 응답 735217B 동일 = 중복 소스 (3) code.claude.com/docs(CC 전용 문서 사이트, 200) 미커버 — 업그레이드 모니터인데 정작 CC 문서를 안 봄 (4) claude-agent-sdk-python v0.2.128 / claude-agent-sdk-typescript v0.3.220 누락(구 claude-code-sdk-python은 301 리네임), 현재 있는 건 API SDK뿐 (5) modelcontextprotocol/docs 최종 push 2025-04-08 (15개월 무커밋) (6) anthropics/courses 2025-11-13 (8개월) (7) anthropics/skills는 릴리스 0건인데 check_releases:true (무해)."
+      "note": "제거: modelcontextprotocol/docs(2025-04-08 이후 무커밋), spec.modelcontextprotocol.io(TLS 인증서 오류로 접속불가), docs.claude.com·docs.anthropic.com 중복 2건. 교체: CC CHANGELOG를 github blob→raw(blob은 본문을 클라이언트 렌더라 HTML에 없음), MCP changelog를 동결된 2025-06-18→현행 2026-07-28 리비전, docs 페이지들을 Mintlify .md/llms.txt 엔드포인트로. 추가: code.claude.com/docs/llms.txt(주간 whats-new 스트림 포함), code.claude.com/docs/en/changelog.md, skills.md, claude-plugins-official, knowledge-work-plugins, claude-agent-sdk-{python,typescript}, mcp registry. 실측 근거: platform.claude.com의 release-notes/overview와 /api가 HTML 1439569B·추출해시·md 74151B 3중으로 동일 = 한 소스.",
+      "done_at": "2026-07-29",
+      "evidence": "신규 sources.json 27개 소스 전수 생존 검증 스크립트 rc=0 (실패 0). 격리 HOME E2E: run1 90건(BLOG3+CHANGELOG4+DOC5+GITHUB72, 이전 55건) → run2 0건 + 'All sources reachable'"
     },
     {
       "id": "T-005",
@@ -128,13 +130,15 @@
     {
       "id": "T-010",
       "title": "cc-upgrade: fetch 실패를 조용히 삼켜 죽은 소스와 조용한 소스가 구분 불가",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "category": "bug",
       "deps": [],
       "created_at": "2026-07-29",
       "updated_at": "2026-07-29",
-      "note": "T-004 작업 중 확인. fetchHashBased는 !response.ok면 return [], catch도 return []. fetchGitHubRepo도 catch 무음. 그래서 URL이 죽어도 '변경 없음'과 동일하게 보이고, 실제로 sources.json이 4개월간 썩는 동안(spec.modelcontextprotocol.io 접속불가, MCP 스펙 리비전 동결, docs 도메인 이전) 아무 신호도 안 났다. SKILL.md도 '도구가 실패한 fetch를 조용히 건너뛴다'고 명시하며 이를 수용하고 있었음. 조치: 실패를 수집해 리포트 말미에 Source health 섹션으로 노출."
+      "note": "failures 배열 + recordFailure/describeError 도입, 6개 실패 경로(hash non-ok, hash catch, github commits/releases non-ok, github catch)에 배선. GitHub 403은 'rate limited, set GITHUB_TOKEN' 힌트 부착. 핵심: allUpdates 0건 조기반환 경로에서 'Everything is up to date!'를 실패 0건일 때만 출력 — 전 소스가 죽어도 '최신입니다'라고 말하던 최악의 경로 차단.",
+      "done_at": "2026-07-29",
+      "evidence": "죽은 소스 3종 주입 테스트: 'Source Health — 3 unreachable' + 사유별 표기(ghost-repo HTTP 404 / 404 Page HTTP 404 / Dead Host unknown certificate verification error), 정상 대조군은 통과. 정상 실행 시 'All sources reachable'"
     }
   ]
 }
