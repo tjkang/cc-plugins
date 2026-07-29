@@ -30,6 +30,72 @@
       "note": "2026-07-29 완료. CLAUDE.md 구조 트리에 cc-audit/ + harness-kit 레이어 추가, cc-upgrade 하위경로 정밀화.\n연계 감사(CC 2.1.220 실측)에서 추가 드리프트 발견 → 별도 태스크로 등록.",
       "done_at": "2026-07-29",
       "evidence": "grep -n 'cc-audit' CLAUDE.md → 구조 트리 12행에 등재 확인"
+    },
+    {
+      "id": "T-002",
+      "title": "cc-upgrade: 5KB 프리픽스 해시가 본문을 못 봐 hash 기반 소스 14개 사실상 무력",
+      "status": "todo",
+      "priority": "P1",
+      "category": "bug",
+      "deps": [],
+      "created_at": "2026-07-29",
+      "updated_at": "2026-07-29",
+      "note": "실측 2026-07-29(CC 2.1.220): HASH_PREFIX_BYTES=5000인데 대상 페이지는 111KB~1.4MB. 7개 URL 전수 확인 결과 prefix 5000B 안에 <h1>/<article>/changelog/버전문자열 매치 0건 = <head> 보일러플레이트만 해싱. 본문 변경이 해시를 안 바꾸므로 blogs4+changelogs4+docs6이 변경탐지 불능(반대로 asset 빌드해시 변동 시 오탐). 수정 방향: GitHub blob→raw.githubusercontent, docs는 <main>/<article> 추출 후 해싱 또는 sitemap/lastmod, 프리픽스 상한 제거."
+    },
+    {
+      "id": "T-003",
+      "title": "cc-audit SKILL.md의 플러그인 설치 경로가 실존하지 않음 — 문서대로 실행 시 즉시 실패",
+      "status": "todo",
+      "priority": "P1",
+      "category": "bug",
+      "deps": [],
+      "created_at": "2026-07-29",
+      "updated_at": "2026-07-29",
+      "note": "실측: SKILL.md가 안내하는 ~/.claude/plugins/marketplaces/<marketplace>/cc-audit/skills/cc-audit/audit.py 부재. 실제 설치본은 ~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/skills/cc-audit/audit.py (예: cache/tjkang-cc-plugins/cc-audit/0.1.0/...). cc-upgrade처럼 ${CLAUDE_PLUGIN_ROOT}/skills/cc-audit/audit.py 로 통일할 것."
+    },
+    {
+      "id": "T-004",
+      "title": "cc-upgrade sources.json 노후 — 죽은 소스/중복/CC 문서 본진 누락",
+      "status": "todo",
+      "priority": "P2",
+      "category": "maintenance",
+      "deps": [],
+      "created_at": "2026-07-29",
+      "updated_at": "2026-07-29",
+      "note": "실측 2026-07-29: (1) spec.modelcontextprotocol.io 접속불가(curl 000) (2) docs.claude.com·docs.anthropic.com 둘 다 platform.claude.com/docs로 리다이렉트, 응답 735217B 동일 = 중복 소스 (3) code.claude.com/docs(CC 전용 문서 사이트, 200) 미커버 — 업그레이드 모니터인데 정작 CC 문서를 안 봄 (4) claude-agent-sdk-python v0.2.128 / claude-agent-sdk-typescript v0.3.220 누락(구 claude-code-sdk-python은 301 리네임), 현재 있는 건 API SDK뿐 (5) modelcontextprotocol/docs 최종 push 2025-04-08 (15개월 무커밋) (6) anthropics/courses 2025-11-13 (8개월) (7) anthropics/skills는 릴리스 0건인데 check_releases:true (무해)."
+    },
+    {
+      "id": "T-005",
+      "title": "cc-audit: settings.json 손편집 지시 → claude plugin disable/enable CLI로 교체",
+      "status": "todo",
+      "priority": "P2",
+      "category": "docs",
+      "deps": [],
+      "created_at": "2026-07-29",
+      "updated_at": "2026-07-29",
+      "note": "CC 2.1.220 claude plugin --help 실측: disable/enable/details/update/prune/tag/eval/init verb 존재. SKILL.md 4단계가 'settings.json을 Edit로 한 줄씩 true→false' 를 지시하는데 이는 CLI 이전 방식. 특히 claude plugin details <name>는 'component inventory and projected token cost'를 네이티브 제공 = cc-audit 가치제안과 직접 겹침 → 포지셔닝 재검토 동반."
+    },
+    {
+      "id": "T-006",
+      "title": "cc-audit: 스킬(skills) 분류 부재 — 현행 CC의 최대 토큰 자산이 감사 대상 밖",
+      "status": "todo",
+      "priority": "P2",
+      "category": "feature",
+      "deps": [],
+      "created_at": "2026-07-29",
+      "updated_at": "2026-07-29",
+      "note": "실측: audit.py classify()는 agents+plugins만 분류. 스킬은 invocation 카운트만 세고 dead-weight 판정 안 함. 이 머신 기준 ~/.claude/skills 63개 + 플러그인 캐시 SKILL.md 1374개. claude plugin init이 ~/.claude/skills/<name>/(=<name>@skills-dir)에 스캐폴드하는 현행 모델과도 어긋남. 참고: transcript 파싱 자체는 건재 — regex vs JSON 교차검증 3377/3377 tool_use, 75/75 subagent, 32/32 skill 완전 일치."
+    },
+    {
+      "id": "T-007",
+      "title": "레포 문서 드리프트 3건 — README cc-audit 미등재 / .context.md 없는 CLI verb / marketplace description 누락",
+      "status": "todo",
+      "priority": "P3",
+      "category": "docs",
+      "deps": [],
+      "created_at": "2026-07-29",
+      "updated_at": "2026-07-29",
+      "note": "(1) README 플러그인 표에 cc-audit 없음(T-001의 형제) (2) README의 docs.anthropic.com/en/docs/claude-code 링크는 code.claude.com/docs로 리다이렉트 — 직접 링크로 갱신 (3) .context.md의 'claude plugin add'는 존재하지 않는 verb(실측: error unknown command 'add') → marketplace add / install (4) claude plugin validate . 경고: marketplace description 없음. 공식 마켓플레이스는 $schema·description·category·renames 사용 (5) 미추적 파일에 bun.lock과 pnpm-lock.yaml 공존 — 패키지매니저 정리 필요."
     }
   ]
 }
