@@ -124,6 +124,17 @@
       "created_at": "2026-07-29",
       "updated_at": "2026-07-29",
       "note": "T-003 검증 중 발견(2026-07-29). 실측: 설치본 ~/.claude/plugins/cache/tjkang-cc-plugins/cc-audit/0.1.0/skills/cc-audit/audit.py 에 'all-projects' 0회, 레포 현재판 4회. installed sha=51ac7801e7e2(2026-04-13) 이후 cc-audit 커밋 3건(0a6cf2f --all-projects 추가 / 847e498 문서 / 992a7c7 false positive 수정)이 있었으나 plugin.json version은 최초 커밋 aa57f09 이후 계속 0.1.0. 결과: SKILL.md가 --all-projects를 지시하는데 설치본은 그 플래그를 모르고, argparse가 아닌 수동 sys.argv 검사라 에러도 안 난다 → 단일 프로젝트만 스캔 → SKILL.md 자신이 경고하는 false 0-count가 그대로 발생. 조치: (1) cc-audit·cc-upgrade 버전 범프 + marketplace.json 동기(claude plugin tag가 둘의 일치를 검증) (2) audit.py에 미지 플래그 거부 추가 — 조용한 성능저하를 시끄러운 실패로."
+    },
+    {
+      "id": "T-010",
+      "title": "cc-upgrade: fetch 실패를 조용히 삼켜 죽은 소스와 조용한 소스가 구분 불가",
+      "status": "todo",
+      "priority": "P2",
+      "category": "bug",
+      "deps": [],
+      "created_at": "2026-07-29",
+      "updated_at": "2026-07-29",
+      "note": "T-004 작업 중 확인. fetchHashBased는 !response.ok면 return [], catch도 return []. fetchGitHubRepo도 catch 무음. 그래서 URL이 죽어도 '변경 없음'과 동일하게 보이고, 실제로 sources.json이 4개월간 썩는 동안(spec.modelcontextprotocol.io 접속불가, MCP 스펙 리비전 동결, docs 도메인 이전) 아무 신호도 안 났다. SKILL.md도 '도구가 실패한 fetch를 조용히 건너뛴다'고 명시하며 이를 수용하고 있었음. 조치: 실패를 수집해 리포트 말미에 Source health 섹션으로 노출."
     }
   ]
 }
