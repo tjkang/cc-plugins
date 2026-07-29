@@ -73,13 +73,15 @@
     {
       "id": "T-005",
       "title": "cc-audit: settings.json 손편집 지시 → claude plugin disable/enable CLI로 교체",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "category": "docs",
       "deps": [],
       "created_at": "2026-07-29",
       "updated_at": "2026-07-29",
-      "note": "CC 2.1.220 claude plugin --help 실측: disable/enable/details/update/prune/tag/eval/init verb 존재. SKILL.md 4단계가 'settings.json을 Edit로 한 줄씩 true→false' 를 지시하는데 이는 CLI 이전 방식. 특히 claude plugin details <name>는 'component inventory and projected token cost'를 네이티브 제공 = cc-audit 가치제안과 직접 겹침 → 포지셔닝 재검토 동반."
+      "note": "4단계를 claude plugin disable <plugin>@<marketplace> --scope user 로 교체하되 백업은 유지. CLI가 손편집과 같은 편집을 하지만 스코프 자동탐지·JSON 무파손·enable로 즉시 원복이라는 점을 명시. 5단계 검증을 'JSON 유효성'에서 'claude plugin list로 목록 판정'으로 바꾸고, claude plugin details의 토큰 인벤토리와의 역할 분담(정적 인벤토리 vs 30일 실사용)을 한 줄 추가. Common Mistakes에 손편집 행 추가. 부수 관찰: details가 커맨드를 Skills로 묶어 'Skills (2) cc-audit, cc-audit'로 표시 — 디스크엔 SKILL.md 1개 + commands 1개뿐이라 CC 표시 방식 문제이지 플러그인 결함 아님.",
+      "done_at": "2026-07-29",
+      "evidence": "격리 CLAUDE_CONFIG_DIR에서 SKILL.md 지시 명령 그대로 실행: enable/disable 둘 다 성공, plugin list Status=disabled 확인. 메커니즘 실측 — install이 settings.json에 enabledPlugins{...:true}를 쓰고 disable이 false로 바꾼다(installed_plugins.json은 불변)"
     },
     {
       "id": "T-006",
