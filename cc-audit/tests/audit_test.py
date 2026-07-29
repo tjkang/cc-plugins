@@ -173,6 +173,33 @@ def case_window_boundary(root):
     check("boundary/stale_lines", inv["stale_lines"], 1)
 
 
+def case_merge_sums_every_field(root):
+    """--all-projects 합산은 알려진 필드가 아니라 **모든** 필드를 더해야 한다.
+
+    나열식 병합이면 새 통계를 추가할 때 빠뜨리기 쉽고, 그 실수는 단일 프로젝트
+    경로에서는 드러나지 않는다. 그래서 아직 존재하지도 않는 필드를 하나 끼워 넣어
+    병합이 이름을 몰라도 합치는지를 본다.
+    """
+    d1, d2 = root / "p1", root / "p2"
+    d1.mkdir()
+    d2.mkdir()
+    write_transcript(d1, "a.jsonl", [tool_line("Read", iso(1)), tool_line("Bash", iso(100))])
+    write_transcript(d2, "b.jsonl", [tool_line("Read", iso(2)), tool_line("Glob", None)])
+
+    a = audit.collect_invocations(d1, 30)
+    b = audit.collect_invocations(d2, 30)
+    a["future_stat"], b["future_stat"] = 3, 4     # 아직 없는 통계를 흉내
+
+    m = audit.merge_invocations(dict(a), b)
+    check("merge/file_count", m["file_count"], 2)
+    check("merge/stale_lines", m["stale_lines"], 1)      # d1 의 100일 전 Bash
+    check("merge/undated_lines", m["undated_lines"], 1)  # d2 의 timestamp 없는 Glob
+    check("merge/tools[Read]", m["tools"]["Read"], 2)    # 양쪽에서 1건씩
+    check("merge/tools[Glob]", m["tools"]["Glob"], 1)
+    check("merge/future_stat", m["future_stat"], 7)      # 이름을 몰라도 합쳐져야 한다
+    check("merge/no_dead_session_count", "session_count" in m, False)
+
+
 def case_cutoff_is_utc(_root):
     """cutoff 표기가 transcript와 같아야 사전순 비교가 시간순 비교가 된다."""
     epoch, cutoff = audit.window_cutoff(30)
@@ -192,6 +219,7 @@ CASES = [
     case_nested_timestamp_not_mistaken_for_root,
     case_old_file_prefiltered,
     case_window_boundary,
+    case_merge_sums_every_field,
     case_cutoff_is_utc,
 ]
 

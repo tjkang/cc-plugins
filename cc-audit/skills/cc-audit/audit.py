@@ -212,9 +212,7 @@ def collect_invocations(transcript_dir, window_days):
         except Exception:
             pass
 
-    sessions = set(os.path.dirname(f) or f for f in files)
     return {
-        "session_count": len(sessions),
         "file_count": len(files),
         "stale_lines": stale_lines,
         "undated_lines": undated_lines,
@@ -222,6 +220,19 @@ def collect_invocations(transcript_dir, window_days):
         "skills": skills,
         "tools": tools,
     }
+
+
+def merge_invocations(base, other):
+    """프로젝트별 집계를 합친다 (--all-projects).
+
+    필드를 손으로 나열하지 않는 것이 요지다. int든 Counter든 `+`가 성립하므로
+    전 항목을 훑으면 된다. 나열식으로 두면 새 통계를 추가할 때 이 블록에 더하는 걸
+    잊게 되고, 그 실수는 단일 프로젝트에서는 맞고 --all-projects 에서만 조용히
+    어긋나므로 눈에 띄지 않는다.
+    """
+    for key, value in other.items():
+        base[key] = base[key] + value
+    return base
 
 
 def list_enabled_plugins():
@@ -570,16 +581,7 @@ def main():
         merged = None
         for td in transcript_dirs:
             inv = collect_invocations(td, window_days)
-            if merged is None:
-                merged = inv
-            else:
-                merged["session_count"] += inv["session_count"]
-                merged["file_count"] += inv["file_count"]
-                merged["stale_lines"] += inv["stale_lines"]
-                merged["undated_lines"] += inv["undated_lines"]
-                merged["subagents"] += inv["subagents"]
-                merged["skills"] += inv["skills"]
-                merged["tools"] += inv["tools"]
+            merged = inv if merged is None else merge_invocations(merged, inv)
         invocations = merged
     else:
         transcript_dir = find_transcripts()
