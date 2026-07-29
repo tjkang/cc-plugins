@@ -123,13 +123,15 @@
     {
       "id": "T-009",
       "title": "배포 위생: plugin.json version이 기능 추가 후에도 0.1.0 고정 + audit.py가 미지 플래그를 조용히 무시 → 설치본이 문서와 다르게 동작",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "category": "bug",
       "deps": [],
       "created_at": "2026-07-29",
       "updated_at": "2026-07-29",
-      "note": "T-003 검증 중 발견(2026-07-29). 실측: 설치본 ~/.claude/plugins/cache/tjkang-cc-plugins/cc-audit/0.1.0/skills/cc-audit/audit.py 에 'all-projects' 0회, 레포 현재판 4회. installed sha=51ac7801e7e2(2026-04-13) 이후 cc-audit 커밋 3건(0a6cf2f --all-projects 추가 / 847e498 문서 / 992a7c7 false positive 수정)이 있었으나 plugin.json version은 최초 커밋 aa57f09 이후 계속 0.1.0. 결과: SKILL.md가 --all-projects를 지시하는데 설치본은 그 플래그를 모르고, argparse가 아닌 수동 sys.argv 검사라 에러도 안 난다 → 단일 프로젝트만 스캔 → SKILL.md 자신이 경고하는 false 0-count가 그대로 발생. 조치: (1) cc-audit·cc-upgrade 버전 범프 + marketplace.json 동기(claude plugin tag가 둘의 일치를 검증) (2) audit.py에 미지 플래그 거부 추가 — 조용한 성능저하를 시끄러운 실패로."
+      "note": "cc-audit·cc-upgrade 0.1.0→0.2.0 범프(양쪽 다 이번 세션에 동작 변경이 들어감). audit.py에 KNOWN_FLAGS + reject_unknown_flags 추가 — 조용한 무시를 rc=2 중단으로 전환하고 'claude plugin update cc-audit' 안내 포함. --version은 plugin.json을 읽으므로 버전 정본이 하나로 유지된다. claude plugin tag는 plugin.json↔marketplace 일치를 검증하지만 더티 트리를 거부하므로 커밋 후 실행할 것.",
+      "done_at": "2026-07-29",
+      "evidence": "미지 플래그 --bogus → rc=2 + 버전 표시 메시지 / 정상 조합(--all-projects --window 30d --json) rc=0 / --version → 0.2.0(plugin.json에서 읽음) / --window 14d가 플래그로 오인되지 않고 window_days=14 파싱. 버전 4곳(plugin.json 2 + marketplace.json 2) 전부 0.2.0 일치, claude plugin validate 3개 전부 통과"
     },
     {
       "id": "T-010",
