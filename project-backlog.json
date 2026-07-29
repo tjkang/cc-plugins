@@ -164,13 +164,15 @@
     {
       "id": "T-012",
       "title": "cc-audit 윈도우가 메시지 시각이 아닌 파일 mtime 기준 — 오래된 세션을 이어쓰면 전체가 '30일 내'로 집계",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "category": "bug",
       "deps": [],
       "created_at": "2026-07-29",
       "updated_at": "2026-07-29",
-      "note": "2026-07-29 발견. collect_invocations가 os.path.getmtime(f) > cutoff 로 파일을 고르고 그 파일의 모든 라인을 센다. 그래서 3개월 전 시작한 세션을 어제 resume하면 그 안의 옛 호출이 전부 30일 집계에 들어간다. 실측 근거: code-simplifier·pr-review-toolkit·code-review가 2026-07-15 시점에 이미 disabled인데 '30일 호출' 4/2/1건으로 잡혔다(호출 이름은 code-simplifier:code-simplifier 등 네임스페이스가 붙어 플러그인 출처는 진짜). 방향은 과대집계라 안전측(안 쓰는 걸 지우자고 하지는 않음)이지만 '30일 N회' 수치는 상한으로 읽어야 한다. 수정안: 라인의 timestamp 필드로 필터하거나, 최소한 리포트에 '파일 mtime 기준' 명시."
+      "note": "2026-07-29 발견. collect_invocations가 os.path.getmtime(f) > cutoff 로 파일을 고르고 그 파일의 모든 라인을 센다. 그래서 3개월 전 시작한 세션을 어제 resume하면 그 안의 옛 호출이 전부 30일 집계에 들어간다. 실측 근거: code-simplifier·pr-review-toolkit·code-review가 2026-07-15 시점에 이미 disabled인데 '30일 호출' 4/2/1건으로 잡혔다(호출 이름은 code-simplifier:code-simplifier 등 네임스페이스가 붙어 플러그인 출처는 진짜). 방향은 과대집계라 안전측(안 쓰는 걸 지우자고 하지는 않음)이지만 '30일 N회' 수치는 상한으로 읽어야 한다. 수정안: 라인의 timestamp 필드로 필터하거나, 최소한 리포트에 '파일 mtime 기준' 명시.\n\n2026-07-29 종료 (커밋 6ee3165). 티켓 전제는 코드에서 재현됐다 — collect_invocations 가\ngetmtime > cutoff 로 파일을 고르고 그 파일의 전 라인을 셌다. 전 프로젝트 실측: 윈도우 안\n13,078 파일 중 12개가 윈도우 밖 라인 2,943건(호출 이름으로는 2,980건)을 흘려 집계가 3.2%\n부풀었고, BrowserAgent 와 last30days 두 자산이 '저빈도'가 아니라 '유지'로 잘못 분류돼 있었다.\n수정: 라인의 top-level timestamp 로 판정. 사전 실측으로 호출 라인 92,756건 전부가 그 필드를\nUTC-Z 로 갖는 것을 확인했고(누락 0), 확정 못 하는 라인은 버리지 않고 세면서 undated_lines 로\n리포트에 드러낸다 — 과대집계는 '유지' 쪽으로만 틀리지만 과소집계는 살아있는 도구를 끈다.\n\n⚠️ 티켓 근거 정정: 근거로 든 code-simplifier/pr-review-toolkit/code-review 는 이 버그의\n사례가 아니었다. 세 건의 호출 시각을 실측하니 2026-07-05~07-16 로 전부 윈도우 **안**이고,\n픽스 전후 카운트가 그대로다(2/1/4 → 2/1/4). 즉 '나중에 disable 된 도구를 그 전 사용분으로\n세고 있던 것'이라 정상 동작이다. 버그 자체는 위 2,943건으로 독립 입증됐다.\n\nCodex 2차 리뷰에서 MODIFY 2회 후 PROCEED. 첫 지적은 실물이었다 — 초안이 라인의 첫 timestamp 를\n정규식으로 집어 중첩된 tool 인자 속 값을 라인 시각으로 오인할 수 있었다(양방향: 옛 값이면\n살아있는 호출을 버리고, 최근 값이면 옛 호출을 세며 이상치 카운터까지 무력화). 그 빠른 경로의\n비용을 실제로 재보니 최적화가 아니라 역효과여서(전 스캔 9.1s → 5.8s) 분기를 더하는 대신\n통째로 걷어냈다. 지금은 root 필드가 유일한 근거다.\n\n남긴 전제(수정 아님): mtime 사전 필터는 transcript 가 append-only 이고 mtime 이 마지막 기록\n시각일 때만 안전하다. 백업에서 mtime 째 복원한 파일을 섞으면 최근 라인을 통째로 놓친다.\n그 대가는 매 실행 I/O 2.5배 절감(33,242 → 13,103 파일)이라 유지하되, 근거를 docstring 과\n테스트(case_old_file_prefiltered)에 박제했다.",
+      "done_at": "2026-07-29",
+      "evidence": "python3 cc-audit/tests/audit_test.py rc=0 (7케이스). 판별력 4모드: 필터 제거/역전/regex-first 복원 모두 red, regex-first 는 nested 케이스만 red. 실코퍼스 --all-projects rc=0: 13,167 파일, stale_lines_skipped=2,965, undated_lines_counted=0, 버킷 0/1/68/26, 7.8s. Codex 재리뷰 PROCEED."
     }
   ]
 }
