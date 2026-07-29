@@ -3,6 +3,7 @@
 cc-audit: Claude Code 설정 감사 헬퍼
 
 30일치 transcript 데이터로 dead weight를 식별한다 (legacy 에이전트, 0회 사용자 스킬, 0회 플러그인).
+윈도우는 라인의 timestamp 기준이다 — 파일 mtime은 파일을 미리 거르는 데만 쓴다.
 SKILL.md(.claude/skills/cc-audit/SKILL.md)와 함께 사용.
 
 사용법:
@@ -16,8 +17,8 @@ import os
 import re
 import sys
 import glob
-import time
 from collections import Counter
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -101,9 +102,76 @@ def find_all_transcripts():
     return [d for d in projects_dir.iterdir() if d.is_dir()]
 
 
+# transcript 라인이 기록된 시각. 실측(2026-07-29, 전 프로젝트 13,078 파일): 호출을 담은
+# 라인 92,756건이 **전부** 이 필드를 top-level에 갖고 **전부** UTC 'Z' 표기다. 그래서 앞
+# 19자('YYYY-MM-DDTHH:MM:SS')의 문자열 비교가 곧 시각 비교가 된다 — 고정폭 UTC라 사전순 == 시간순.
+# 'Z'를 요구하는 것이 offset 표기('+09:00')에 대한 가드다. 그런 값은 사전순 비교가 성립하지
+# 않으므로 매치시키지 않고 UNDATED로 흘려보낸다.
+UTC_TIMESTAMP_RE = re.compile(r"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})[.\d]*Z\Z")
+
+INSIDE = "inside"      # 윈도우 안 — 집계
+STALE = "stale"        # 윈도우 밖임이 확인됨 — 제외
+UNDATED = "undated"    # 시각을 확정 못 함 — 집계하되 리포트에 드러낸다
+
+
+def window_cutoff(window_days):
+    """윈도우 시작 시각을 (epoch, transcript 표기) 두 형태로.
+
+    파일 mtime 비교에는 epoch이, 라인 timestamp 비교에는 문자열이 필요하다. 시계를
+    한 번만 읽어 둘 다 만든다 — 따로 읽으면 같은 이름의 경계가 두 값이 된다.
+    """
+    start = datetime.now(timezone.utc) - timedelta(days=window_days)
+    return start.timestamp(), start.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def utc_prefix(value):
+    """UTC 'Z' 표기면 비교 가능한 19자 접두사를, 아니면 None."""
+    m = UTC_TIMESTAMP_RE.match(value) if isinstance(value, str) else None
+    return m.group(1) if m else None
+
+
+def line_window_state(line, cutoff_iso):
+    """호출 라인이 윈도우의 어디에 있나 — INSIDE / STALE / UNDATED.
+
+    판정은 **언제나 top-level timestamp**로 한다. 정규식으로 라인의 첫 timestamp를
+    집는 빠른 경로를 한때 뒀다가 걷어냈다. 그 경로는 중첩된 tool 인자 속 timestamp를
+    라인 시각으로 오인하는데, 오인의 방향이 양쪽 다 나쁘다 — 옛 인자를 보면 살아있는
+    호출을 버리고, 최근 인자를 보면 옛 호출을 세면서 이상치 카운터까지 무력화한다.
+    게다가 느렸다: 거대한 라인을 정규식으로 훑는 비용이 C 구현 json.loads보다 커서
+    전 프로젝트 스캔이 9.1초 → 5.8초로 오히려 줄었다(실측 2026-07-29).
+
+    시각을 확정 못 하면 UNDATED — 세되 리포트에 드러낸다. 두 오차가 대칭이 아니라서다:
+    잘못 남기면 과대집계라 '유지' 쪽으로만 틀리지만, 잘못 버리면 살아있는 도구가
+    0회로 보여 꺼진다.
+    """
+    try:
+        root = utc_prefix(json.loads(line).get("timestamp"))
+    except Exception:
+        return UNDATED
+    if root is None:
+        return UNDATED
+    return STALE if root < cutoff_iso else INSIDE
+
+
 def collect_invocations(transcript_dir, window_days):
-    """N일치 transcript에서 실제 호출 추출."""
-    cutoff = time.time() - window_days * 86400
+    """윈도우 안에서 기록된 호출만 추출.
+
+    파일은 mtime으로 먼저 거른다 — 마지막 쓰기가 윈도우 이전이면 그 안의 모든 라인도
+    이전이라 안전한 사전 필터다. 반대는 성립하지 않는다: 몇 달 전 시작한 세션을 어제
+    resume하면 파일 mtime은 어제지만 옛 호출이 그대로 들어 있다. 그래서 라인마다
+    timestamp를 다시 본다. 실측(2026-07-29, 전 프로젝트 13,078 파일): mtime만으로
+    거르면 12개 파일이 윈도우 밖 라인 2,943건(호출 이름으로는 2,980건)을 흘려 30일
+    집계가 3.2% 부풀었고, 자산 2개가 '저빈도'가 아니라 '유지'로 잘못 분류됐다.
+    cutoff가 매 실행 미끄러지고 transcript도 계속 쌓이므로 이 수치는 재현하면
+    달라진다 — 재는 방법이 요지지 값이 요지가 아니다.
+
+    사전 필터가 기대는 전제는 **transcript가 append-only이고 mtime이 마지막 기록
+    시각**이라는 것이다. 백업에서 mtime째로 복원하거나 rsync -t로 옮긴 파일은 이
+    전제를 깨서 최근 라인을 통째로 놓칠 수 있다. 그 대가로 매 실행 I/O가 2.5배
+    줄어든다(실측 33,242 → 13,103 파일). 라이브 transcript에서는 깨지지 않는 전제라
+    유지하되, 복원본을 섞어 감사할 일이 생기면 이 필터부터 의심할 것.
+    """
+    cutoff, cutoff_iso = window_cutoff(window_days)
     files = [
         f for f in glob.glob(str(transcript_dir / "**/*.jsonl"), recursive=True)
         if os.path.getmtime(f) > cutoff
@@ -112,6 +180,8 @@ def collect_invocations(transcript_dir, window_days):
     subagents = Counter()
     skills = Counter()
     tools = Counter()
+    stale_lines = 0
+    undated_lines = 0
 
     tool_use_re = re.compile(
         r'"type"\s*:\s*"tool_use"\s*,\s*"id"\s*:\s*"[^"]*"\s*,\s*"name"\s*:\s*"([^"]+)"'
@@ -123,13 +193,22 @@ def collect_invocations(transcript_dir, window_days):
         try:
             with open(f, encoding="utf-8") as fp:
                 for line in fp:
-                    for m in tool_use_re.finditer(line):
-                        tools[m.group(1)] += 1
-                    if '"name":"Agent"' in line:
-                        for m in subagent_re.finditer(line):
-                            subagents[m.group(1)] += 1
-                    for m in skill_re.finditer(line):
-                        skills[m.group(1)] += 1
+                    tool_names = tool_use_re.findall(line)
+                    skill_names = skill_re.findall(line)
+                    agent_names = (
+                        subagent_re.findall(line) if '"name":"Agent"' in line else []
+                    )
+                    if not (tool_names or skill_names or agent_names):
+                        continue
+                    state = line_window_state(line, cutoff_iso)
+                    if state == STALE:
+                        stale_lines += 1
+                        continue
+                    if state == UNDATED:
+                        undated_lines += 1
+                    tools.update(tool_names)
+                    subagents.update(agent_names)
+                    skills.update(skill_names)
         except Exception:
             pass
 
@@ -137,6 +216,8 @@ def collect_invocations(transcript_dir, window_days):
     return {
         "session_count": len(sessions),
         "file_count": len(files),
+        "stale_lines": stale_lines,
+        "undated_lines": undated_lines,
         "subagents": subagents,
         "skills": skills,
         "tools": tools,
@@ -420,6 +501,15 @@ def render_report(stats, classification, window_days):
     out.append(f"  unique subagent: {len(stats['subagents'])}")
     out.append(f"  unique skill   : {len(stats['skills'])}")
     out.append(f"  unique tool    : {len(stats['tools'])}")
+    out.append(
+        "  집계 기준      : 라인 timestamp (파일 mtime은 사전 필터)"
+        f" — 윈도우 밖 {stats['stale_lines']}건 제외"
+    )
+    if stats["undated_lines"]:
+        out.append(
+            f"  ⚠️  시각 미확정 {stats['undated_lines']}건은 집계에 포함 — 그만큼"
+            " '30일'이 상한이다 (timestamp 없음 또는 UTC 표기 아님)"
+        )
     out.append("")
 
     if stats["file_count"] < 10:
@@ -485,6 +575,8 @@ def main():
             else:
                 merged["session_count"] += inv["session_count"]
                 merged["file_count"] += inv["file_count"]
+                merged["stale_lines"] += inv["stale_lines"]
+                merged["undated_lines"] += inv["undated_lines"]
                 merged["subagents"] += inv["subagents"]
                 merged["skills"] += inv["skills"]
                 merged["tools"] += inv["tools"]
@@ -513,6 +605,8 @@ def main():
             "window_days": window_days,
             "stats": {
                 "transcript_files": invocations["file_count"],
+                "stale_lines_skipped": invocations["stale_lines"],
+                "undated_lines_counted": invocations["undated_lines"],
                 "unique_subagents": len(invocations["subagents"]),
                 "unique_skills": len(invocations["skills"]),
                 "unique_tools": len(invocations["tools"]),
