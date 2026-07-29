@@ -1,6 +1,6 @@
 {
   "name": "cc-audit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Audit your Claude Code setup with 30-day usage data to identify dead-weight plugins, deprecated agents, and unused tools — then safely clean them up with backup and approval gates.",
   "author": {
     "name": "TJ Kang",

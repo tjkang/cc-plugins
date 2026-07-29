@@ -1,4 +1,5 @@
 {
+  "_comment": "Prefer .md / raw / llms.txt endpoints over rendered HTML — they are the content itself, so change detection tracks what was written rather than what the site builder emitted. Verified live 2026-07-29 against Claude Code 2.1.220.",
   "blogs": [
     {
       "name": "Anthropic News",
@@ -40,6 +41,33 @@
       "repo": "skills",
       "priority": "HIGH",
       "check_commits": true,
+      "check_releases": false,
+      "note": "Publishes no GitHub releases — commits only"
+    },
+    {
+      "name": "claude-plugins-official",
+      "owner": "anthropics",
+      "repo": "claude-plugins-official",
+      "priority": "HIGH",
+      "check_commits": true,
+      "check_releases": false,
+      "note": "The official plugin marketplace — new plugins land here first"
+    },
+    {
+      "name": "claude-agent-sdk-typescript",
+      "owner": "anthropics",
+      "repo": "claude-agent-sdk-typescript",
+      "priority": "HIGH",
+      "check_commits": false,
+      "check_releases": true,
+      "note": "Versioned in lockstep with the Claude Code release it ships against"
+    },
+    {
+      "name": "claude-agent-sdk-python",
+      "owner": "anthropics",
+      "repo": "claude-agent-sdk-python",
+      "priority": "MEDIUM",
+      "check_commits": false,
       "check_releases": true
     },
     {
@@ -51,9 +79,17 @@
       "check_releases": true
     },
     {
-      "name": "MCP Docs",
+      "name": "MCP Registry",
       "owner": "modelcontextprotocol",
-      "repo": "docs",
+      "repo": "registry",
+      "priority": "MEDIUM",
+      "check_commits": false,
+      "check_releases": true
+    },
+    {
+      "name": "knowledge-work-plugins",
+      "owner": "anthropics",
+      "repo": "knowledge-work-plugins",
       "priority": "MEDIUM",
       "check_commits": true,
       "check_releases": false
@@ -67,12 +103,12 @@
       "check_releases": false
     },
     {
-      "name": "anthropic-sdk-python",
+      "name": "claude-quickstarts",
       "owner": "anthropics",
-      "repo": "anthropic-sdk-python",
-      "priority": "LOW",
-      "check_commits": false,
-      "check_releases": true
+      "repo": "claude-quickstarts",
+      "priority": "MEDIUM",
+      "check_commits": true,
+      "check_releases": false
     },
     {
       "name": "anthropic-sdk-typescript",
@@ -83,70 +119,76 @@
       "check_releases": true
     },
     {
+      "name": "anthropic-sdk-python",
+      "owner": "anthropics",
+      "repo": "anthropic-sdk-python",
+      "priority": "LOW",
+      "check_commits": false,
+      "check_releases": true
+    },
+    {
       "name": "courses",
       "owner": "anthropics",
       "repo": "courses",
-      "priority": "MEDIUM",
+      "priority": "LOW",
       "check_commits": true,
-      "check_releases": false
-    },
-    {
-      "name": "claude-quickstarts",
-      "owner": "anthropics",
-      "repo": "claude-quickstarts",
-      "priority": "MEDIUM",
-      "check_commits": true,
-      "check_releases": false
+      "check_releases": false,
+      "note": "Low traffic — last push 2025-11 as of 2026-07-29"
     }
   ],
   "changelogs": [
     {
       "name": "Claude Code CHANGELOG",
-      "url": "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md",
+      "url": "https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md",
+      "priority": "HIGH",
+      "type": "changelog",
+      "note": "Raw file, not the github.com blob page — the blob page renders its content client-side and serves none of it in the HTML"
+    },
+    {
+      "name": "Claude Code Docs Changelog",
+      "url": "https://code.claude.com/docs/en/changelog.md",
       "priority": "HIGH",
       "type": "changelog"
     },
     {
-      "name": "Claude Docs Release Notes",
-      "url": "https://docs.claude.com/en/release-notes/overview",
+      "name": "Claude Platform Release Notes",
+      "url": "https://platform.claude.com/docs/en/release-notes/overview.md",
       "priority": "HIGH",
-      "type": "changelog"
-    },
-    {
-      "name": "API Release Notes",
-      "url": "https://docs.claude.com/en/release-notes/api",
-      "priority": "HIGH",
-      "type": "changelog"
+      "type": "changelog",
+      "note": "The /release-notes/api route serves a byte-identical payload — one source, not two"
     },
     {
       "name": "MCP Changelog",
-      "url": "https://modelcontextprotocol.io/specification/2025-06-18/changelog",
+      "url": "https://modelcontextprotocol.io/specification/2026-07-28/changelog.md",
       "priority": "HIGH",
-      "type": "changelog"
+      "type": "changelog",
+      "note": "Revision-pinned by design. When MCP cuts a new revision this URL freezes — the MCP Docs Index below is what surfaces the new one"
     }
   ],
   "documentation": [
     {
-      "name": "Claude Docs Home",
-      "url": "https://docs.claude.com",
-      "priority": "MEDIUM",
-      "type": "docs"
+      "name": "Claude Code Docs Index",
+      "url": "https://code.claude.com/docs/llms.txt",
+      "priority": "HIGH",
+      "type": "docs",
+      "note": "Every Claude Code doc page with its description, including the weekly whats-new entries — a new page shows up here first"
     },
     {
-      "name": "Anthropic API Docs",
-      "url": "https://docs.anthropic.com",
-      "priority": "MEDIUM",
-      "type": "docs"
-    },
-    {
-      "name": "MCP Docs",
-      "url": "https://modelcontextprotocol.io",
+      "name": "MCP Docs Index",
+      "url": "https://modelcontextprotocol.io/llms.txt",
       "priority": "HIGH",
       "type": "docs"
     },
     {
-      "name": "MCP Specification",
-      "url": "https://spec.modelcontextprotocol.io",
+      "name": "Claude Platform Docs Index",
+      "url": "https://platform.claude.com/docs/llms.txt",
+      "priority": "MEDIUM",
+      "type": "docs",
+      "note": "docs.claude.com and docs.anthropic.com both redirect here"
+    },
+    {
+      "name": "Agent Skills Docs",
+      "url": "https://code.claude.com/docs/en/skills.md",
       "priority": "HIGH",
       "type": "docs"
     },
@@ -154,12 +196,6 @@
       "name": "MCP Registry",
       "url": "https://registry.modelcontextprotocol.io",
       "priority": "MEDIUM",
-      "type": "docs"
-    },
-    {
-      "name": "Skills Documentation",
-      "url": "https://support.claude.com/en/articles/12512176-what-are-skills",
-      "priority": "HIGH",
       "type": "docs"
     }
   ],

@@ -16,7 +16,7 @@ import { homedir } from 'os';
 
 // ── Types ──
 
-interface Source {
+export interface Source {
   name: string;
   url?: string;
   owner?: string;
@@ -36,7 +36,7 @@ interface Sources {
   community: Source[];
 }
 
-interface Update {
+export interface Update {
   source: string;
   category: string;
   type: 'commit' | 'release' | 'blog' | 'changelog' | 'docs' | 'community';
@@ -48,6 +48,14 @@ interface Update {
   hash?: string;
   sha?: string;
   version?: string;
+  /**
+   * Where the next run should resume for `stateKey` — the newest item in this
+   * batch, not this particular one. State is written by iterating the report,
+   * which is sorted by priority and date, so whichever update happens to land
+   * last would otherwise become the resume point and every newer item would be
+   * re-reported forever.
+   */
+  stateValue?: string;
   priority: 'HIGH' | 'MEDIUM' | 'LOW';
   recommendation?: string;
 }
@@ -67,7 +75,6 @@ interface State {
 
 const MS_PER_DAY = 86_400_000;
 const FETCH_TIMEOUT_MS = 10_000;
-const HASH_PREFIX_BYTES = 5000;
 
 const HOME = homedir();
 const STATE_FILE = join(HOME, '.claude', 'cc-upgrade.state.json');
@@ -85,19 +92,54 @@ const FORCE = args.includes('--force');
 
 // ── Utilities ──
 
-function slugify(s: string): string {
+export function slugify(s: string): string {
   return s.toLowerCase().replace(/\s+/g, '_');
 }
 
-function makeStateKey(prefix: string, name: string, suffix?: string): string {
+export function makeStateKey(prefix: string, name: string, suffix?: string): string {
   return suffix ? `${prefix}_${slugify(name)}_${suffix}` : `${prefix}_${slugify(name)}`;
 }
 
-function hash(content: string): string {
+export function hash(content: string): string {
   return createHash('md5').update(content).digest('hex');
 }
 
-const today = () => new Date().toISOString().split('T')[0];
+/**
+ * Reduce a fetched document to the text a human would read, so the hash tracks
+ * content instead of markup.
+ *
+ * Hashing raw HTML (or a fixed-size prefix of it) fails in both directions on
+ * modern doc sites: the readable text sits far past any prefix, while the
+ * <head> carries per-response build ids and nonces that change on every fetch.
+ * Measured 2026-07-29 — a 5000-byte prefix of 7 tracked pages (111KB–1.4MB)
+ * contained zero content markers, and 3 of them hashed differently across two
+ * requests made 1.5s apart.
+ *
+ * Non-HTML payloads (raw markdown, llms.txt) are already content, so they pass
+ * through untouched — tag-stripping them would corrupt the body.
+ */
+export function extractContent(raw: string, contentType = ''): string {
+  const isHtml = contentType
+    ? /html/i.test(contentType)
+    : /<html[\s>]|<!doctype\s+html/i.test(raw.slice(0, 2000));
+  if (!isHtml) return raw.trim();
+
+  return raw
+    .replace(/<head[\s\S]*?<\/head>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+    .replace(/<svg[\s\S]*?<\/svg>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&[a-z]+;|&#\d+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// Local calendar date. toISOString() would report UTC, so a run late in the
+// evening east of Greenwich would date the report to the previous day.
+const today = () => new Intl.DateTimeFormat('en-CA').format(new Date());
 
 function defaultState(): State {
   return {
@@ -149,6 +191,33 @@ function logRun(updates: Update[]): void {
 
 // ── Fetchers ──
 
+/**
+ * Sources that could not be reached this run.
+ *
+ * A swallowed fetch error is indistinguishable from "nothing changed", which is
+ * how this source list rotted unnoticed for four months — a dead URL and a quiet
+ * one produced the same empty result. Failures are collected here and printed,
+ * so rot announces itself.
+ */
+const failures: { name: string; reason: string }[] = [];
+
+function recordFailure(name: string, reason: string): void {
+  failures.push({ name, reason });
+}
+
+function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.name === 'TimeoutError' ? `timeout after ${FETCH_TIMEOUT_MS}ms` : error.message;
+  }
+  return String(error);
+}
+
+function describeGitHubStatus(status: number): string {
+  // 403 here is almost always the 60/hour unauthenticated ceiling, not a real
+  // permission problem — say so, since the fix is one env var.
+  return status === 403 ? 'HTTP 403 — rate limited, set GITHUB_TOKEN' : `HTTP ${status}`;
+}
+
 // Generic fetcher for hash-based change detection (blogs, changelogs, docs)
 async function fetchHashBased(
   source: Source, state: State,
@@ -156,10 +225,13 @@ async function fetchHashBased(
 ): Promise<Update[]> {
   try {
     const response = await fetch(source.url!, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-    if (!response.ok) return [];
+    if (!response.ok) {
+      recordFailure(source.name, `HTTP ${response.status}`);
+      return [];
+    }
 
     const content = await response.text();
-    const contentHash = hash(content.substring(0, HASH_PREFIX_BYTES));
+    const contentHash = hash(extractContent(content, response.headers.get('content-type') ?? ''));
     const key = makeStateKey(opts.keyPrefix, source.name);
 
     if (!FORCE && state.sources[key]?.last_hash === contentHash) return [];
@@ -173,17 +245,20 @@ async function fetchHashBased(
       hash: contentHash, priority: source.priority,
       summary: opts.summary
     }];
-  } catch { return []; }
+  } catch (error) {
+    recordFailure(source.name, describeError(error));
+    return [];
+  }
 }
 
-function extractHtmlTitle(html: string): string {
+export function extractHtmlTitle(html: string): string {
   const m = html.match(/<h1[^>]*>(.*?)<\/h1>/i) || html.match(/<title>(.*?)<\/title>/i);
-  return m ? m[1].replace(/<[^>]+>/g, '').trim() : 'Latest update';
+  return m?.[1] ? m[1].replace(/<[^>]+>/g, '').trim() : 'Latest update';
 }
 
-function extractChangelogTitle(content: string): string {
+export function extractChangelogTitle(content: string): string {
   const m = content.match(/##?\s*(v?[\d.]+|[\w\s]+)\s*\n/i);
-  return m ? m[1] : 'Latest update';
+  return m?.[1] ?? 'Latest update';
 }
 
 const GITHUB_HEADERS: Record<string, string> = {
@@ -204,11 +279,16 @@ async function fetchGitHubRepo(source: Source, state: State): Promise<Update[]> 
         const since = new Date(Date.now() - DAYS * MS_PER_DAY).toISOString();
         const url = `https://api.github.com/repos/${source.owner}/${source.repo}/commits?since=${since}&per_page=10`;
         const response = await fetch(url, { headers: GITHUB_HEADERS, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-        if (!response.ok) return;
+        if (!response.ok) {
+          recordFailure(`${source.name} (commits)`, describeGitHubStatus(response.status));
+          return;
+        }
 
         const commits = await response.json() as any[];
+        if (commits.length === 0) return;
         const key = makeStateKey('github', source.repo!, 'commits');
         const lastSha = state.sources[key]?.last_sha;
+        const newestSha = commits[0].sha; // GitHub returns newest first
 
         for (const commit of commits) {
           if (FORCE || commit.sha !== lastSha) {
@@ -218,7 +298,7 @@ async function fetchGitHubRepo(source: Source, state: State): Promise<Update[]> 
               url: commit.html_url,
               date: commit.commit.author.date.split('T')[0],
               stateKey: key,
-              sha: commit.sha, priority: source.priority,
+              sha: commit.sha, stateValue: newestSha, priority: source.priority,
               summary: `Commit by ${commit.commit.author.name}`
             });
           }
@@ -231,11 +311,16 @@ async function fetchGitHubRepo(source: Source, state: State): Promise<Update[]> 
       promises.push((async () => {
         const url = `https://api.github.com/repos/${source.owner}/${source.repo}/releases?per_page=5`;
         const response = await fetch(url, { headers: GITHUB_HEADERS, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-        if (!response.ok) return;
+        if (!response.ok) {
+          recordFailure(`${source.name} (releases)`, describeGitHubStatus(response.status));
+          return;
+        }
 
         const releases = await response.json() as any[];
+        if (releases.length === 0) return;
         const key = makeStateKey('github', source.repo!, 'releases');
         const lastVersion = state.sources[key]?.last_version;
+        const newestVersion = releases[0].tag_name; // GitHub returns newest first
 
         for (const release of releases) {
           if (FORCE || release.tag_name !== lastVersion) {
@@ -245,7 +330,7 @@ async function fetchGitHubRepo(source: Source, state: State): Promise<Update[]> 
               url: release.html_url,
               date: release.published_at.split('T')[0],
               stateKey: key,
-              version: release.tag_name, priority: source.priority,
+              version: release.tag_name, stateValue: newestVersion, priority: source.priority,
               summary: release.body ? release.body.substring(0, 200) + '...' : 'See release notes'
             });
           }
@@ -255,14 +340,16 @@ async function fetchGitHubRepo(source: Source, state: State): Promise<Update[]> 
     }
 
     await Promise.all(promises);
-  } catch { /* timeout or network error */ }
+  } catch (error) {
+    recordFailure(source.name, describeError(error));
+  }
 
   return updates;
 }
 
 // ── Recommendation Engine ──
 
-function generateRecommendation(update: Update): string {
+export function generateRecommendation(update: Update): string {
   const t = update.title.toLowerCase();
 
   if (t.includes('skill')) return `**Impact:** Skills system update — review for new patterns or capabilities.`;
@@ -280,7 +367,7 @@ function generateRecommendation(update: Update): string {
   return `**Impact:** General update — review if time permits.`;
 }
 
-function assessRelevance(update: Update): 'HIGH' | 'MEDIUM' | 'LOW' {
+export function assessRelevance(update: Update): 'HIGH' | 'MEDIUM' | 'LOW' {
   const t = update.title.toLowerCase();
 
   if (['skill', 'mcp', 'command', 'agent', 'hook', 'breaking', 'claude code', 'plugin'].some(k => t.includes(k))) return 'HIGH';
@@ -292,6 +379,17 @@ function assessRelevance(update: Update): 'HIGH' | 'MEDIUM' | 'LOW' {
 }
 
 // ── Report ──
+
+function printSourceHealth(): void {
+  if (failures.length === 0) {
+    console.log('## Source Health\n\nAll sources reachable.\n');
+    return;
+  }
+  console.log(`## Source Health — ${failures.length} unreachable\n`);
+  for (const f of failures) console.log(`- **${f.name}** — ${f.reason}`);
+  console.log('\nAn unreachable source reports no updates, which reads the same as a quiet one.');
+  console.log('Treat the entries above as unmeasured, not as "nothing changed".\n');
+}
 
 function printSection(label: string, updates: Update[], verbose: boolean): void {
   if (updates.length === 0) return;
@@ -358,7 +456,12 @@ async function main() {
   console.log(`Fetch complete. Found ${allUpdates.length} updates.\n`);
 
   if (allUpdates.length === 0) {
-    console.log('No new updates found. Everything is up to date!');
+    // Say "up to date" only when every source actually answered — otherwise the
+    // silence is missing data, not good news.
+    console.log(failures.length === 0
+      ? 'No new updates found. Everything is up to date!'
+      : `No new updates found — but ${failures.length} source(s) could not be reached.`);
+    printSourceHealth();
     return;
   }
 
@@ -389,6 +492,7 @@ async function main() {
   console.log('## Community\n');
   console.log('**Discord:** https://discord.com/invite/6PPFFzqPDZ');
   console.log('_(Manual check recommended)_\n');
+  printSourceHealth();
   console.log('='.repeat(80));
 
   // Update state using stateKey embedded in each Update (single source of truth)
@@ -399,9 +503,9 @@ async function main() {
     if (u.hash) {
       newState.sources[u.stateKey] = { last_hash: u.hash, last_title: u.title, last_checked: now };
     } else if (u.sha) {
-      newState.sources[u.stateKey] = { last_sha: u.sha, last_title: u.title, last_checked: now };
+      newState.sources[u.stateKey] = { last_sha: u.stateValue ?? u.sha, last_title: u.title, last_checked: now };
     } else if (u.version) {
-      newState.sources[u.stateKey] = { last_version: u.version, last_title: u.title, last_checked: now };
+      newState.sources[u.stateKey] = { last_version: u.stateValue ?? u.version, last_title: u.title, last_checked: now };
     }
   }
 
@@ -410,7 +514,10 @@ async function main() {
   console.log('\nState saved. Run complete.');
 }
 
-main().catch(error => {
-  console.error('Fatal error:', error);
-  process.exit(1);
-});
+// 직접 실행할 때만 네트워크를 친다 — 테스트가 import해도 부수효과가 없도록.
+if (import.meta.main) {
+  main().catch(error => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+}

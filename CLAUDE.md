@@ -16,9 +16,14 @@ cc-plugins/
 │   └── marketplace.json  # 마켓플레이스 매니페스트 (글로벌 배포)
 ├── cc-upgrade/            # Anthropic 생태계 모니터링 플러그인
 │   ├── .claude-plugin/    # 플러그인 매니페스트
-│   ├── commands/          # 슬래시 커맨드
-│   ├── skills/            # 스킬 (SKILL.md) — 5단계 워크플로우
-│   └── tools/             # TypeScript 도구
+│   ├── commands/          # 슬래시 커맨드 (/cc-upgrade)
+│   ├── skills/upgrade/    # SKILL.md — 5단계 워크플로우 + sources.json
+│   └── tools/             # TypeScript 도구 (check-sources.ts)
+├── cc-audit/              # 30일 사용량 기반 설정 감사 플러그인
+│   ├── .claude-plugin/    # 플러그인 매니페스트
+│   ├── commands/          # 슬래시 커맨드 (/cc-audit)
+│   └── skills/cc-audit/   # SKILL.md + audit.py 헬퍼
+├── hooks/·scripts/·harness.config.sh·project-backlog.json  # harness-kit 백로그 레이어
 └── (향후 플러그인 추가)
 ```
 
@@ -44,15 +49,23 @@ claude plugin install cc-upgrade@tjkang-cc-plugins --scope user
 ## 개발 명령어
 
 ```bash
-# 플러그인 도구 테스트
+# 테스트 / 타입체크
+bun test ./cc-upgrade/tools/check-sources.test.ts
+bunx tsc --noEmit -p tsconfig.json     # scripts/backlog*.ts 잔여 에러는 벤더된 킷 소유
+
+# 플러그인 도구 실행 (HOME을 임시 디렉토리로 두면 라이브 state를 안 건드린다)
 bun cc-upgrade/tools/check-sources.ts [days] [--force]
+python3 cc-audit/skills/cc-audit/audit.py --all-projects [--json]
 
 # 로컬 플러그인 로드 테스트
 claude --plugin-dir /path/to/cc-plugins/cc-upgrade
 
-# 마켓플레이스 매니페스트 검증
+# 매니페스트 검증 / 릴리스 태그
 claude plugin validate /path/to/cc-plugins
+claude plugin tag ./cc-audit --dry-run   # plugin.json ↔ marketplace.json 버전 일치 검증
 ```
+
+> 버전을 올릴 때는 `<plugin>/.claude-plugin/plugin.json`과 루트 `marketplace.json` **양쪽**을 함께 올린다. 한쪽만 올리면 `claude plugin tag`가 막고, 아무도 안 올리면 사용자 설치본이 문서와 다르게 동작한다(실제로 4개월간 그랬다).
 
 ## Harness Golden Rules (harness-kit, 2026-07-18)
 

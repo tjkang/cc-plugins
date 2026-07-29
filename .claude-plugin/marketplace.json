@@ -1,5 +1,6 @@
 {
   "name": "tjkang-cc-plugins",
+  "description": "Plugins for keeping a Claude Code setup current and lean — track what changed upstream, and find what you have stopped using.",
   "owner": {
     "name": "TJ Kang"
   },
@@ -7,13 +8,16 @@
     {
       "name": "cc-upgrade",
       "description": "Monitor Anthropic ecosystem changes and get prioritized upgrade recommendations for your Claude Code setup",
+      "category": "monitoring",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/tjkang/cc-plugins.git",
         "path": "cc-upgrade"
       },
-      "version": "0.1.0",
-      "author": { "name": "TJ Kang" },
+      "version": "0.2.0",
+      "author": {
+        "name": "TJ Kang"
+      },
       "homepage": "https://github.com/tjkang/cc-plugins",
       "repository": "https://github.com/tjkang/cc-plugins",
       "license": "MIT"
@@ -21,13 +25,16 @@
     {
       "name": "cc-audit",
       "description": "Audit Claude Code setup with 30-day usage data, identify dead-weight plugins/agents, and clean up safely with backup + approval gates",
+      "category": "productivity",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/tjkang/cc-plugins.git",
         "path": "cc-audit"
       },
-      "version": "0.1.0",
-      "author": { "name": "TJ Kang" },
+      "version": "0.2.0",
+      "author": {
+        "name": "TJ Kang"
+      },
       "homepage": "https://github.com/tjkang/cc-plugins",
       "repository": "https://github.com/tjkang/cc-plugins",
       "license": "MIT"

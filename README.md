@@ -1,6 +1,6 @@
 # cc-plugins
 
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code) 플러그인 모음집입니다.
+[Claude Code](https://code.claude.com/docs) 플러그인 모음집입니다.
 
 ## Claude Code 플러그인이란?
 
@@ -10,11 +10,12 @@ Claude Code 플러그인은 슬래시 커맨드, 스킬, 도구를 추가해서 
 
 | 플러그인 | 설명 | 버전 |
 |----------|------|------|
-| [cc-upgrade](./cc-upgrade/) | Anthropic 생태계 변경사항 모니터링 + 업그레이드 추천 | v0.1.0 |
+| [cc-upgrade](./cc-upgrade/) | Anthropic 생태계 변경사항 모니터링 + 업그레이드 추천 | v0.2.0 |
+| [cc-audit](./cc-audit/) | 30일 사용량으로 안 쓰는 플러그인·에이전트·스킬 찾아 안전하게 정리 | v0.2.0 |
 
 ## 사전 준비
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code)가 설치되어 있어야 합니다
+- [Claude Code](https://code.claude.com/docs)가 설치되어 있어야 합니다
 - [Bun](https://bun.sh) 런타임 (일부 플러그인의 도구 실행에 필요)
 
 ## 설치 방법
@@ -29,6 +30,7 @@ claude plugin marketplace add https://github.com/tjkang/cc-plugins
 
 # 2. 원하는 플러그인 설치 (글로벌)
 claude plugin install cc-upgrade@tjkang-cc-plugins --scope user
+claude plugin install cc-audit@tjkang-cc-plugins --scope user
 ```
 
 설치 후 모든 Claude Code 세션에서 자동 로드됩니다. 레포에 업데이트가 push되면 자동 반영됩니다.
@@ -53,9 +55,10 @@ Claude Code 세션에서 입력:
 
 ```
 /cc-upgrade
+/cc-audit
 ```
 
-커맨드가 인식되면 설치 완료입니다.
+커맨드가 인식되면 설치 완료입니다. 설치된 판을 확인하려면 `claude plugin list`, 구성요소와 토큰 비용은 `claude plugin details <플러그인>`, 갱신은 `claude plugin update <플러그인>`.
 
 ## 기여하기
 

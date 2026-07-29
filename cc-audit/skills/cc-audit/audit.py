@@ -2,7 +2,7 @@
 """
 cc-audit: Claude Code 설정 감사 헬퍼
 
-30일치 transcript 데이터로 dead weight를 식별한다 (legacy 에이전트, 0회 플러그인).
+30일치 transcript 데이터로 dead weight를 식별한다 (legacy 에이전트, 0회 사용자 스킬, 0회 플러그인).
 SKILL.md(.claude/skills/cc-audit/SKILL.md)와 함께 사용.
 
 사용법:
@@ -24,6 +24,48 @@ from pathlib import Path
 HOME = Path.home()
 PROJECT = Path.cwd()
 USER_SETTINGS = HOME / ".claude" / "settings.json"
+
+
+# --window만 값을 하나 더 먹는다.
+KNOWN_FLAGS = {"--json", "--all-projects", "--all", "--window", "--version", "--help", "-h"}
+
+
+def plugin_version():
+    """번들된 plugin.json의 버전. 설치본이 어느 판인지 알려주기 위한 것."""
+    manifest = Path(__file__).resolve().parents[2] / ".claude-plugin" / "plugin.json"
+    try:
+        return json.loads(manifest.read_text()).get("version", "unknown")
+    except Exception:
+        return "unknown"
+
+
+def reject_unknown_flags(args):
+    """모르는 옵션이면 멈춘다.
+
+    조용히 무시하면 이 설치본이 문서보다 낡았을 때 그 사실이 드러나지 않는다.
+    실제로 --all-projects가 없던 판이 그 플래그를 무시하고 단일 프로젝트만
+    스캔해, 이 도구가 경고하는 바로 그 false 0-count를 만들어냈다.
+    """
+    unknown = []
+    expecting_value = False
+    for a in args:
+        if expecting_value:
+            expecting_value = False
+            continue
+        if a == "--window":
+            expecting_value = True
+            continue
+        if a.startswith("-") and a not in KNOWN_FLAGS:
+            unknown.append(a)
+    if unknown:
+        sys.stderr.write(
+            f"❌ 모르는 옵션: {' '.join(unknown)}\n"
+            f"   이 설치본(v{plugin_version()})은 그 옵션을 모릅니다.\n"
+            "   무시하고 진행하면 감사 범위가 문서와 달라지므로 중단합니다.\n"
+            "   플러그인이 낡았다면: claude plugin update cc-audit\n"
+            f"   지원 옵션: {' '.join(sorted(KNOWN_FLAGS))}\n"
+        )
+        sys.exit(2)
 
 
 def parse_window(args):
@@ -141,13 +183,26 @@ def passive_plugin_names():
     return passive
 
 
-def list_agents():
-    """프로젝트 + 글로벌 에이전트 파일."""
+def _collect(subdir, pattern):
+    """프로젝트 + 글로벌 .claude/<subdir>에서 pattern에 맞는 파일 수집."""
     paths = []
-    for base in [PROJECT / ".claude" / "agents", HOME / ".claude" / "agents"]:
+    for base in [PROJECT / ".claude" / subdir, HOME / ".claude" / subdir]:
         if base.exists():
-            paths.extend(base.glob("*.md"))
+            paths.extend(base.glob(pattern))
     return paths
+
+
+def list_agents():
+    return _collect("agents", "*.md")
+
+
+def list_skills():
+    """사용자가 소유한 스킬만.
+
+    플러그인이 제공하는 스킬은 제외한다. 그것들은 개별로 지우는 물건이 아니라
+    플러그인 단위로 켜고 끄는 것이라, 이미 플러그인 분류가 다루고 있다.
+    """
+    return _collect("skills", "*/SKILL.md")
 
 
 NAME_RE = re.compile(r"^name:\s*(.+)$", re.M)
@@ -155,10 +210,16 @@ DEPRECATED_RE = re.compile(r"\[DEPRECATED\]|deprecated", re.I)
 REPLACEMENT_RE = re.compile(r"`([a-z][a-z0-9-]+)`")
 
 
-def parse_agent(path):
+def parse_asset(path):
+    """에이전트(.md) / 스킬(SKILL.md) 공통 파서.
+
+    스킬은 파일명이 항상 SKILL.md라 stem이 이름이 될 수 없다 — 부모 디렉토리가
+    이름이다. transcript의 Skill 호출도 그 이름으로 기록된다.
+    """
     text = path.read_text(encoding="utf-8", errors="ignore")
     name_m = NAME_RE.search(text)
-    name = (name_m.group(1).strip() if name_m else path.stem).strip("\"'")
+    fallback = path.parent.name if path.name == "SKILL.md" else path.stem
+    name = (name_m.group(1).strip() if name_m else fallback).strip("\"'")
     deprecated = bool(DEPRECATED_RE.search(text))
     # Look for replacement agent names mentioned in deprecation sections
     replacements = []
@@ -175,13 +236,24 @@ def parse_agent(path):
 REFERENCE_FILE_PATTERNS = ("*.md", "*.js", "*.json", "*.yaml", "*.yml")
 
 
-def count_references(name, search_dirs, file_patterns=REFERENCE_FILE_PATTERNS):
-    """스킬, 커맨드, 매니페스트 등에서 에이전트 이름 참조 검색 (자기 자신 제외).
+def count_references(name, search_dirs, file_patterns=REFERENCE_FILE_PATTERNS, self_path=None):
+    """스킬, 커맨드, 매니페스트 등에서 이름 참조 검색 (자기 자신 제외).
 
     .md만 보면 .claude/commands/ 의 슬래시 커맨드 정의나 *.js/*.json 매니페스트에서
     간접 참조하는 케이스를 놓쳐 false positive 발생 (활성 에이전트가 safe_delete로
     분류). 파일 패턴 확장으로 방지.
+
+    자기 제외가 두 겹인 이유: 에이전트는 파일명이 <name>.md라 stem으로 걸러지지만,
+    스킬은 <name>/SKILL.md라 stem이 항상 "SKILL"이다. self_path 없이는 스킬이
+    자기 frontmatter의 이름을 자기 참조로 세어 참조가 절대 0이 되지 않는다.
     """
+    resolved_self = None
+    if self_path is not None:
+        try:
+            resolved_self = Path(self_path).resolve()
+        except Exception:
+            resolved_self = None
+
     refs = 0
     for d in search_dirs:
         if not d.exists():
@@ -190,6 +262,8 @@ def count_references(name, search_dirs, file_patterns=REFERENCE_FILE_PATTERNS):
             for f in d.rglob(pattern):
                 try:
                     if f.stem == name:
+                        continue
+                    if resolved_self is not None and f.resolve() == resolved_self:
                         continue
                     text = f.read_text(encoding="utf-8", errors="ignore")
                     if name in text:
@@ -230,73 +304,72 @@ def plugin_invocation_count(plugin_name, invocations):
     return count
 
 
-def classify(invocations, plugins, agents):
+REFERENCE_SEARCH_DIRS = [
+    PROJECT / ".claude" / "skills",
+    PROJECT / ".claude" / "agents",
+    PROJECT / ".claude" / "commands",
+    HOME / ".claude" / "skills",
+    HOME / ".claude" / "agents",
+    HOME / ".claude" / "commands",
+]
+
+# 0회일 때 왜 남겨둘 만한지 — 종류마다 이유가 다르다.
+ZERO_CALL_REASON = {
+    "agent": "30일 0회 (deprecated 아님 — 안전장치일 수 있음)",
+    "skill": "30일 0회 (스킬은 description 매칭으로 발동 — 안 쓴 게 아니라 설명이 안 걸렸을 수 있음)",
+}
+
+
+def classify_assets(paths, kind, call_counts, safe_delete, review, keep):
+    """에이전트/스킬을 공통 기준으로 분류한다.
+
+    삭제 후보는 deprecated + 0회 + 대체 검증 + 참조 0건을 모두 통과한 것뿐이다.
+    나머지 0회는 사람 판단으로 넘긴다 — 호출 0회가 곧 무용은 아니다.
+    """
+    parsed = [parse_asset(p) for p in paths]
+    known_names = {info["name"] for info in parsed}
+    known_stems = {p.parent.name if p.name == "SKILL.md" else p.stem for p in paths}
+
+    for info in parsed:
+        calls = call_counts.get(info["name"], 0)
+        entry = {"type": kind, "name": info["name"], "path": str(info["path"]), "calls": calls}
+
+        if info["deprecated"] and calls == 0:
+            replacements_exist = (
+                bool(info["replacements"])
+                and all(r in known_stems or r in known_names for r in info["replacements"])
+            )
+            ref_count = count_references(
+                info["name"], REFERENCE_SEARCH_DIRS, self_path=info["path"]
+            )
+            if replacements_exist and ref_count == 0:
+                safe_delete.append({
+                    **entry,
+                    "reason": f"DEPRECATED + 대체 {len(info['replacements'])}개 검증 + 참조 0건",
+                })
+            else:
+                review.append({
+                    **entry,
+                    "reason": f"DEPRECATED지만 검증 미완(대체 {info['replacements']}, 참조 {ref_count}건)",
+                })
+        elif calls == 0:
+            review.append({**entry, "reason": ZERO_CALL_REASON[kind]})
+        elif calls < 4:
+            review.append({**entry, "reason": f"30일 {calls}회 (저빈도)"})
+        else:
+            keep.append({"type": kind, "name": info["name"], "calls": calls})
+
+
+def classify(invocations, plugins, agents, skills):
     safe_delete = []
     safe_disable = []
     review = []
     keep = []
     passive = passive_plugin_names()
 
-    agent_stems = {a.stem for a in agents}
-    agent_names = set()
-
-    # 1단계: 에이전트 분류
-    parsed_agents = [parse_agent(a) for a in agents]
-    for info in parsed_agents:
-        agent_names.add(info["name"])
-
-    for info in parsed_agents:
-        calls = invocations["subagents"].get(info["name"], 0)
-        if info["deprecated"] and calls == 0:
-            replacements_exist = (
-                bool(info["replacements"])
-                and all(r in agent_stems or r in agent_names for r in info["replacements"])
-            )
-            ref_count = count_references(
-                info["name"],
-                [
-                    PROJECT / ".claude" / "skills",
-                    PROJECT / ".claude" / "agents",
-                    PROJECT / ".claude" / "commands",
-                    HOME / ".claude" / "skills",
-                    HOME / ".claude" / "agents",
-                    HOME / ".claude" / "commands",
-                ],
-            )
-            if replacements_exist and ref_count == 0:
-                safe_delete.append({
-                    "type": "agent",
-                    "name": info["name"],
-                    "path": str(info["path"]),
-                    "calls": 0,
-                    "reason": f"DEPRECATED + 대체 {len(info['replacements'])}개 검증 + 참조 0건",
-                })
-            else:
-                review.append({
-                    "type": "agent",
-                    "name": info["name"],
-                    "path": str(info["path"]),
-                    "calls": calls,
-                    "reason": f"DEPRECATED지만 검증 미완(대체 {info['replacements']}, 참조 {ref_count}건)",
-                })
-        elif calls == 0:
-            review.append({
-                "type": "agent",
-                "name": info["name"],
-                "path": str(info["path"]),
-                "calls": 0,
-                "reason": "30일 0회 (deprecated 아님 — 안전장치일 수 있음)",
-            })
-        elif calls < 4:
-            review.append({
-                "type": "agent",
-                "name": info["name"],
-                "path": str(info["path"]),
-                "calls": calls,
-                "reason": f"30일 {calls}회 (저빈도)",
-            })
-        else:
-            keep.append({"type": "agent", "name": info["name"], "calls": calls})
+    # 1단계: 에이전트 + 사용자 스킬 분류
+    classify_assets(agents, "agent", invocations["subagents"], safe_delete, review, keep)
+    classify_assets(skills, "skill", invocations["skills"], safe_delete, review, keep)
 
     # 2단계: 플러그인 분류
     for plugin_key, enabled in plugins.items():
@@ -388,7 +461,11 @@ def main():
     if "--help" in args or "-h" in args:
         print(__doc__)
         return
+    if "--version" in args:
+        print(plugin_version())
+        return
 
+    reject_unknown_flags(args)
     window_days = parse_window(args)
     all_projects = "--all-projects" in args or "--all" in args
 
@@ -424,11 +501,12 @@ def main():
             sys.exit(1)
         sys.stderr.write(f"📊 데이터 수집 중 ({window_days}일 윈도우)...\n")
         invocations = collect_invocations(transcript_dir, window_days)
-    sys.stderr.write("📦 settings.json + 에이전트 파일 스캔 중...\n")
+    sys.stderr.write("📦 settings.json + 에이전트/스킬 파일 스캔 중...\n")
     plugins = list_enabled_plugins()
     agents = list_agents()
+    skills = list_skills()
     sys.stderr.write("🔍 분류 중...\n")
-    classification = classify(invocations, plugins, agents)
+    classification = classify(invocations, plugins, agents, skills)
 
     if "--json" in args:
         print(json.dumps({
