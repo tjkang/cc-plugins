@@ -60,9 +60,9 @@ harness_load_config() {
   : "${PROTECTED_BRANCHES=main}"
   : "${BACKLOG_FILE:=project-backlog.json}"
   : "${BACKLOG_AUTOPUSH:=false}"
-  # lockfile 층 (T-019): LOCKFILE_FILE은 '=' — 명시적 빈 값("")은 lockfile 층 전체 비활성
+  # lockfile 층: LOCKFILE_FILE은 '=' — 명시적 빈 값("")은 lockfile 층 전체 비활성
   # (비Node/콘텐츠 repo). LOCKFILE_CHECK_CMD 빈 값은 "킷 기본"(pnpm frozen 검사) — 비pnpm repo는
-  # PM 명령으로 채운다 (npm: "npm ci --dry-run" 등, kit-init PM별 치환 표 참조). "true"=no-op.
+  # PM 명령으로 채운다 (npm: "npm ci --dry-run" 등, kit-init references/pm-substitution.md 참조). "true"=no-op.
   : "${LOCKFILE_FILE=pnpm-lock.yaml}"
   : "${LOCKFILE_CHECK_CMD:=}"
   # 리뷰 게이트 임계도 '=' (unset일 때만 기본값): 명시적 빈 값("")은 그 축 비활성 —
@@ -74,7 +74,7 @@ harness_load_config() {
   # "열린 태스크" 판정 상태 목록 (grep -E 대체군) — 정본 어휘는 scripts/backlog-core.ts STATUS_ENUM.
   # blocked/read-info는 의도적으로 제외: 진행 가능한 작업이 없으면 wrapup 시점이다 (설계 브리프 §E).
   : "${BACKLOG_OPEN_STATUS_REGEX:=todo|in-progress}"
-  # worktree 포트 자동 할당 (T-033): BASE는 '=' — 빈 값("")이 기본이자 "비활성"이다.
+  # worktree 포트 자동 할당: BASE는 '=' — 빈 값("")이 기본이자 "비활성"이다.
   # 포트 스킴은 repo마다 다르고(고정 포트를 요구하는 OAuth 콜백 등), 잘못 알려주면 오히려 해가 되므로
   # 킷 기본은 끔 — repo가 명시적으로 켠다 (kit-init 질문).
   : "${WORKTREE_PORT_BASE=}"
@@ -109,7 +109,7 @@ harness_branch_protected() {
 }
 
 # manifest↔lockfile 정합 검사의 단일 정본 — lockfile-guard(Stop)와 pre-push가 공유.
-# LOCKFILE_CHECK_CMD가 있으면 그 명령으로 검사 (계약: exit 0=정합, 비0=불일치 — T-019 비pnpm 범용화).
+# LOCKFILE_CHECK_CMD가 있으면 그 명령으로 검사 (계약: exit 0=정합, 비0=불일치 — 비pnpm PM 범용화).
 # 빈 값이면 킷 기본: corepack 있으면 packageManager 필드로 pnpm 버전 고정.
 # --lockfile-only: install 없이 정합만 검증 (불일치 exit 1, 정합 ~0.2s, node_modules 무변경 — 실측 2026-07-06)
 # 에러 전문을 stdout으로 내고 비0 반환 — exit code·메시지 계층은 호출자 담당.
@@ -119,7 +119,7 @@ harness_frozen_lockfile_check() {
     # 킷 기본 검사는 pnpm 전용 — 비pnpm LOCKFILE_FILE에 그대로 돌면 거짓 PASS + pnpm-lock.yaml
     # 생성 부수효과 (Codex HIGH 재현). lint-build-check의 config fail-closed 패턴 미러링.
     if [ "$LOCKFILE_FILE" != "pnpm-lock.yaml" ]; then
-      printf 'harness config 오류: LOCKFILE_FILE(%s)가 pnpm 기본이 아닌데 LOCKFILE_CHECK_CMD 미설정 — 기본 pnpm 검사는 이 lockfile을 검증하지 못한다. harness.config.sh에 PM 검사 명령을 지정하라 (kit-init PM별 치환 표 참조)' "$LOCKFILE_FILE"
+      printf 'harness config 오류: LOCKFILE_FILE(%s)가 pnpm 기본이 아닌데 LOCKFILE_CHECK_CMD 미설정 — 기본 pnpm 검사는 이 lockfile을 검증하지 못한다. harness.config.sh에 PM 검사 명령을 지정하라 (kit-init references/pm-substitution.md 참조)' "$LOCKFILE_FILE"
       return 1
     fi
     cmd="pnpm install --frozen-lockfile --lockfile-only"
@@ -132,7 +132,7 @@ harness_frozen_lockfile_check() {
   return 0
 }
 
-# lockfile 파일명 → 패키지매니저명 (lockfile-삭제 fail-closed의 packageManager 대조용, T-019)
+# lockfile 파일명 → 패키지매니저명 (lockfile-삭제 fail-closed의 packageManager 대조용)
 harness_lockfile_pm() {
   case "$LOCKFILE_FILE" in
     pnpm-lock.yaml) printf 'pnpm' ;;
@@ -158,7 +158,7 @@ harness_json_escape() {
 #   working tree(porcelain) ∪ 커밋됐지만 미push 분(@{u}...HEAD) ∪ 세션 시작 앵커 이후 커밋분
 # — 턴 안에서 commit까지 마친 경우에도 게이트가 보게 하기 위한 union (commit-before-Stop 블라인드스팟 방지).
 # 세션 앵커(session-start-anchor.sh 가 기록하는 .harness/session-head)는 upstream(@{u}) 없는
-# local-only repo의 커밋-only 변경까지 커버한다 (T-018 — @{u}가 fatal이라 생략되던 잔여 갭 해소).
+# local-only repo의 커밋-only 변경까지 커버한다 (@{u}가 fatal이라 생략되던 잔여 갭 해소).
 # 이 함수는 config 로드 전(lint-build-check 의 no-op fast path)에도 불리므로 STATE_DIR 기본값을 자체 보유
 # (정본은 harness_load_config 의 HARNESS_STATE_DIR — 여기 기본값은 그와 일치해야 한다).
 # porcelain의 인용 경로(공백/비ASCII → "…")는 양끝 따옴표를 벗겨 확장자 anchor가 깨지지 않게 한다.

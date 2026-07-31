@@ -2,7 +2,7 @@
 # [#4] PostToolUse(Bash) hook — 백로그 파일 변경을 감지해 그 파일 하나만 자동 commit(·push).
 # 자동화가 잊음을 이긴다: CLI로 상태를 바꾸고 커밋을 잊어도 원장이 어긋나지 않는다.
 # 커스터마이즈는 harness.config.sh(BACKLOG_FILE/BACKLOG_AUTOPUSH/PROTECTED_BRANCHES)로만 — 수정 금지 (골든 룰 7).
-# 계약(T-016): 이 훅은 read + git commit만 — 백로그 파일 내용을 절대 mutate하지 않는다.
+# 계약(무-mutate): 이 훅은 read + git commit만 — 백로그 파일 내용을 절대 mutate하지 않는다.
 # write가 필요해지면 scripts/backlog-core.ts의 withFileLock/mutateBacklog을 경유해야 한다 (무락 write = lost-update).
 # 계약: 결과는 systemMessage JSON(사용자 표시)으로 보고, 항상 exit 0 (비차단).
 set -u
@@ -13,12 +13,16 @@ harness_load_config   # 자동화 훅 — config 부재 시 기본값으로 grac
 
 [ -f "$BACKLOG_FILE" ] || exit 0
 
+# 비-git 디렉토리 no-op — 아래 case로는 못 거른다. 비-git에서 `git diff --quiet HEAD`는
+# 128이 아니라 1(=변경됨)을 내므로 커밋 분기로 새서 매 Bash마다 fatal 노이즈가 된다 (T-073 실측).
+git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+
 # fast path: 백로그 무변경이면 즉시 종료 (PostToolUse는 매 Bash 후 실행)
 git diff --quiet HEAD -- "$BACKLOG_FILE" 2>/dev/null
 case $? in
   0) exit 0 ;;  # 무변경
   1) ;;         # 변경 — 진행
-  *) exit 0 ;;  # 비git 등 — 조용히 no-op
+  *) exit 0 ;;  # HEAD 부재(커밋 0건 repo = rc 128) 등 — 조용히 no-op
 esac
 
 # 보호 브랜치에선 미동작 — "직접 push 금지"와 일관 (골든 룰 2)
