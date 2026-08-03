@@ -108,6 +108,76 @@ harness_branch_protected() {
   return $rc
 }
 
+# ── 적대 리뷰 게이트의 규모 임계 — 두 소비자가 **같은 계약을 말하게 하는** 단일 정본 ──
+#
+# 소비자: githooks/pre-push 절 2 (push 시점, git이 주는 remote..local 범위)
+#         hooks/protected-branch-guard.sh (PreToolUse, @{upstream}..HEAD 로 근사)
+#
+# 왜 한 곳에 두는가: 두 곳에 복제했더니 한쪽만 조건이 달라져 **킷이 자기 계약보다 엄격해졌다**
+# — pre-push는 임계 초과일 때만 마커를 요구하는데 가드는 규모와 무관하게 항상 요구했고,
+# 그래서 임계 미만 커밋(예: backlog-autosync가 push 후마다 만드는 1파일 커밋)이 영구히
+# 막혔다. 유일한 우회가 '리뷰 안 받은 커밋에 리뷰 마커를 옮기는 자기승인'이라 더 나빴다(T-101).
+
+# 임계값 형식 검증. 숫자 아닌 값(오타)은 그 축을 조용히 끄는 fail-open이므로 거부한다.
+# **자릿수도 제한한다** — "전부 숫자" 만 보면 99999999999999999999 같은 값이 통과하는데, bash 의
+# `-ge` 는 그런 피연산자에 integer expression 에러를 내고, 그 실패가 아래에서 "임계 미만" 과
+# 같은 반환값으로 접히면 게이트가 조용히 열린다(리뷰 재현). 상한은 셸 정수(64bit)가 안전하게
+# 비교할 수 있는 18자리 — 임의로 9자리를 자르면 1000000000 같은 정상 값이 거부된다.
+# 잘못된 값을 stdout으로 내고 비0 반환 — 메시지·exit code 계층은 호출자 담당.
+harness_review_thresholds_valid() {
+  local v
+  for v in "$REVIEW_FILE_THRESHOLD" "$REVIEW_LINE_THRESHOLD"; do
+    [ -z "$v" ] && continue                       # 빈 값 = 그 축 비활성 (정상)
+    case "$v" in *[!0-9]*) printf '%s' "$v"; return 1 ;; esac
+    # 자릿수 상한은 셸 정수(64bit)가 안전하게 비교할 수 있는 범위로 잡는다. 임의로 9자리를
+    # 자르면 1000000000 같은 **정상 값이 거부**된다(리뷰 지적). 18자리는 int64 안에 항상 든다.
+    [ "${#v}" -le 18 ] || { printf '%s' "$v"; return 1; }
+  done
+  return 0
+}
+
+# numstat 텍스트 → "files lines". binary는 "-"라 0으로 합산된다.
+# 빈 numstat(변경 0)은 printf가 빈 줄 1개를 만들어 NR=1로 위장되므로 명시 분기한다
+# (net-empty push에서 게이트가 오발동하지 않게).
+# awk 실패·비정상 출력은 **비0 반환**으로 알린다 — 빈 문자열을 조용히 "0 0" 으로 흘리면
+# 산출 실패가 "변경 없음" 으로 위장된다.
+harness_review_numstat_totals() {
+  local out
+  if [ -z "$1" ]; then
+    printf '0 0'
+    return 0
+  fi
+  out=$(printf '%s\n' "$1" | awk '{a += $1 + $2} END {printf "%d %d", NR, a + 0}') || return 1
+  case "$out" in
+    *[!0-9\ ]* | '' | ' '*) return 1 ;;           # 정확히 "<digits> <digits>" 가 아니면 판정 불가
+  esac
+  case "$out" in
+    *' '*) ;;
+    *) return 1 ;;
+  esac
+  printf '%s' "$out"
+}
+
+# files/lines가 임계를 넘는가.
+#   0 = 임계 도달·초과 (리뷰 필요)
+#   1 = 미만 (리뷰 불요)
+#   2 = **판정 불가** — 피연산자가 비정상이라 비교 자체가 성립하지 않음
+# 2 를 1 과 합치면 안 된다. 이전 판이 정확히 그 실수를 했고, 비교 실패가 "임계 미만" 으로 읽혀
+# 게이트가 열렸다(리뷰 재현: 20자리 임계값 → integer expression 에러 → return 1 → 통과).
+# 호출자는 2 를 반드시 deny 로 처리한다.
+# 빈 임계값은 그 축이 꺼진 것 — 두 축 모두 비어 있으면 게이트 자체가 비활성이다.
+harness_review_scale_hit() {
+  local files="$1" lines="$2" v
+  for v in "$files" "$lines"; do
+    case "$v" in '' | *[!0-9]*) return 2 ;; esac
+    [ "${#v}" -le 18 ] || return 2            # 셸 정수 비교 안전 범위 (위 임계값 검증과 같은 기준)
+  done
+  harness_review_thresholds_valid >/dev/null || return 2
+  [ -n "$REVIEW_FILE_THRESHOLD" ] && [ "$files" -ge "$REVIEW_FILE_THRESHOLD" ] && return 0
+  [ -n "$REVIEW_LINE_THRESHOLD" ] && [ "$lines" -ge "$REVIEW_LINE_THRESHOLD" ] && return 0
+  return 1
+}
+
 # manifest↔lockfile 정합 검사의 단일 정본 — lockfile-guard(Stop)와 pre-push가 공유.
 # LOCKFILE_CHECK_CMD가 있으면 그 명령으로 검사 (계약: exit 0=정합, 비0=불일치 — 비pnpm PM 범용화).
 # 빈 값이면 킷 기본: corepack 있으면 packageManager 필드로 pnpm 버전 고정.
