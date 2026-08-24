@@ -95,6 +95,7 @@ claude plugin tag ./cc-audit --dry-run   # plugin.json ↔ marketplace.json 버�
 
 3. **완료는 선언이 아니라 판정이다.** 코드 변경이 있는 턴은 lint+build 통과 없이 끝나지 않는다.
    ⚙ 장치: `hooks/lint-build-check.sh` (Stop, 실패 시 exit 2로 재작업).
+   ↳ 성공 결과만 저장소 내용·검사 명령 fingerprint로 캐시하며 Claude Code와 Codex가 공유한다. 내용·명령·런타임·캐시 helper가 바뀌면 자동 무효화되고 실패는 캐시하지 않는다.
 
 4. **의존성 변경은 lockfile과 쌍이다.** package.json을 바꾸면 frozen-lockfile 검증을 통과해야 턴이 끝난다.
    ⚙ 장치: `hooks/lockfile-guard.sh` (Stop) + `githooks/pre-push` 절 1 — 턴/push 2층.
