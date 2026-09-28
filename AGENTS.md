@@ -1,6 +1,6 @@
 # AGENTS.md
 - Stack: TypeScript, Bun, Claude Code plugin system
-- Test: `bun test` (Vitest)
+- Test: `bun test` (bun:test)
 - Naming: kebab-case files, camelCase functions
 - Convention: Each skill has SKILL.md with YAML frontmatter
 - Hooks: PostToolUse/PreToolUse pattern, exit 0 = pass
