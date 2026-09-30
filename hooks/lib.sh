@@ -202,15 +202,76 @@ harness_frozen_lockfile_check() {
   return 0
 }
 
-# lockfile 파일명 → 패키지매니저명 (lockfile-삭제 fail-closed의 packageManager 대조용)
+# LOCKFILE_FILE이 가리키는 디렉토리의 package.json 경로 — nested-package 레이아웃 지원 (T-117).
+# lockfile-guard(Stop)와 pre-push 절1이 공유하는 단일 정본. 루트 하드코딩(`[ -f package.json ]`)이
+# studio/ 처럼 매니페스트가 하위에만 있는 repo에서 게이트를 조용히 끄던 fail-open을 닫는다.
+# 계약: LOCKFILE_FILE의 dirname에 package.json을 붙인다 — 매니페스트와 lockfile은 같은 디렉토리에 산다.
+#   "pnpm-lock.yaml"        → "package.json"        (루트 — 슬래시 없음)
+#   "studio/pnpm-lock.yaml" → "studio/package.json"
+# LOCKFILE_FILE 빈 값은 호출측이 이미 걸러야 한다(lockfile 층 비활성) — 여기선 전제.
+harness_lockfile_manifest() {
+  local dir=${LOCKFILE_FILE%/*}
+  if [ "$dir" = "$LOCKFILE_FILE" ]; then
+    printf 'package.json'          # 슬래시 없음 = 루트
+  else
+    printf '%s/package.json' "$dir"
+  fi
+}
+
+# lockfile 파일명 → 패키지매니저명 (lockfile-삭제 fail-closed의 packageManager 대조용).
+# basename으로 매칭 — LOCKFILE_FILE이 nested 경로(studio/pnpm-lock.yaml)여도 PM을 인식한다 (T-117).
 harness_lockfile_pm() {
-  case "$LOCKFILE_FILE" in
+  case "${LOCKFILE_FILE##*/}" in
     pnpm-lock.yaml) printf 'pnpm' ;;
     package-lock.json) printf 'npm' ;;
     yarn.lock) printf 'yarn' ;;
     bun.lock | bun.lockb) printf 'bun' ;;
     *) printf '' ;;
   esac
+}
+
+# LOCKFILE_FILE 형식 검증 — malformed 값은 게이트를 조용히 끄는 fail-open이므로 fail-closed로 거부 (T-121).
+# 계약: LOCKFILE_FILE은 repo 루트 상대의 lockfile *파일* 경로여야 한다. 아래 셋은 게이트를 오작동시킨다:
+#   절대경로("/…")     → harness_changed_files는 git 상대경로만 내므로 트리거가 영영 안 걸린다(fail-open)
+#   후행 슬래시("s/")  → 디렉토리다. basename이 빈 값이라 PM 인식·삭제 판정이 깨진다
+#   ".." 세그먼트      → repo 밖 이탈([ -f manifest ] 판정이 트리 밖을 가리킨다)
+# 빈 값(lockfile 층 비활성)은 호출측이 먼저 걸러야 한다 — 여기선 비어 있지 않다고 전제한다.
+# 잘못된 값을 stdout으로 내고 비0 반환 — 메시지·exit code 계층은 호출자 담당 (thresholds_valid 패턴).
+harness_lockfile_file_valid() {
+  local v=$LOCKFILE_FILE
+  case "$v" in
+    /*) printf '%s' "$v"; return 1 ;;   # 절대경로 — 상대 매처와 불일치
+    */) printf '%s' "$v"; return 1 ;;   # 후행 슬래시 — 디렉토리
+  esac
+  # 비정규 세그먼트도 거부한다 — [ -f ]는 해석해 통과시키지만 git은 정규화 경로를 내므로
+  # 트리거(harness_lockfile_trigger_re)가 못 걸어 게이트가 조용히 꺼진다(리뷰 MEDIUM). fail-closed.
+  case "/$v/" in
+    */../*) printf '%s' "$v"; return 1 ;;   # .. 세그먼트 — repo 밖 이탈
+    */./*)  printf '%s' "$v"; return 1 ;;   # . 세그먼트 — ./ · foo/./bar (비정규)
+    *//*)   printf '%s' "$v"; return 1 ;;   # 중복 슬래시 — foo//bar (비정규)
+  esac
+  return 0
+}
+
+# lockfile-guard(Stop)의 변경 트리거 정규식 — nested-package 레이아웃 지원 (T-120).
+# 매니페스트 디렉토리 하위 *임의 depth*의 package.json + 설정된 lockfile을 매칭한다. pnpm 워크스페이스에선
+# 하위 패키지의 deps 변경도 루트 lockfile 재생성을 요구하므로 트리거에 포함해야 한다(안 그러면 Stop 층이
+# 조용히 통과 — pre-push 무조건 검사가 잡지만 defense-in-depth 결손). 오탐(워크스페이스 밖 package.json)은
+# frozen 검사가 정합이면 통과라 거짓 차단이 아니라 무해한 재검사로 끝난다.
+# 계약: git 상대경로(리딩 ./ 없음)에 grep -E로 매칭. 정규식 메타문자는 이스케이프. LOCKFILE_FILE은
+# 호출 전에 harness_lockfile_file_valid를 통과했다고 전제한다(절대경로/후행슬래시 없음).
+harness_lockfile_trigger_re() {
+  local dir=${LOCKFILE_FILE%/*} lock=$LOCKFILE_FILE c
+  [ "$dir" = "$LOCKFILE_FILE" ] && dir=""   # 슬래시 없음 = 루트
+  for c in '\' '.' '[' ']' '*' '^' '$' '+' '?' '(' ')' '{' '}' '|'; do
+    dir=${dir//"$c"/\\$c}
+    lock=${lock//"$c"/\\$c}
+  done
+  if [ -z "$dir" ]; then
+    printf '^((.*/)?package\\.json|%s)$' "$lock"
+  else
+    printf '^(%s/(.*/)?package\\.json|%s)$' "$dir" "$lock"
+  fi
 }
 
 # stdin → JSON 문자열 안전 escape (백슬래시·따옴표·개행·탭) — systemMessage 조립용.
@@ -231,14 +292,26 @@ harness_json_escape() {
 # local-only repo의 커밋-only 변경까지 커버한다 (@{u}가 fatal이라 생략되던 잔여 갭 해소).
 # 이 함수는 config 로드 전(lint-build-check 의 no-op fast path)에도 불리므로 STATE_DIR 기본값을 자체 보유
 # (정본은 harness_load_config 의 HARNESS_STATE_DIR — 여기 기본값은 그와 일치해야 한다).
-# porcelain의 인용 경로(공백/비ASCII → "…")는 양끝 따옴표를 벗겨 확장자 anchor가 깨지지 않게 한다.
+# diff 스트림의 인용 경로(공백/비ASCII → "…")는 양끝 따옴표를 벗겨 확장자 anchor가 깨지지 않게 한다.
 # 중복 제거는 awk — macOS BSD `sort -u`의 UTF-8 collapse 함정 회피.
+# rename은 old·new 양쪽을 다 내야 한다 — old(사실상 매니페스트 삭제)를 버리면 rename으로 삭제 감지를
+# 우회할 수 있다(T-119 리뷰). 포셀린은 -z(NUL 구분)로 읽는다: 사람용 ` -> ` 화살표 표기는 파일명에 그
+# 시퀀스가 들어가면 모호해지기 때문(리뷰 MEDIUM — git은 공백을 인용하지 않는다). -z의 rename/copy는
+# `XY new\0old\0` 두 레코드이고 인용·이스케이프가 없다 — read -d ''로 NUL 단위로 읽어 new는 접두(XY+
+# 공백=3자) 제거 후 내고, X 또는 Y가 R/C면 다음 레코드(old)도 낸다. 커밋된 rename은 --no-renames로
+# 삭제(old)+추가(new)로 펼친다(기본 --name-only는 new만 낸다). -z 경로는 인용이 없어 아래 따옴표 벗김이
+# no-op이고, 인용이 남는 것은 non--z인 diff 스트림뿐이다.
 harness_changed_files() {
   local state_dir="${HARNESS_STATE_DIR:-.harness}" anchor=""
   [ -f "$state_dir/session-head" ] && anchor=$(cat "$state_dir/session-head" 2>/dev/null)
   {
-    git status --porcelain 2>/dev/null | sed 's/^...//; s/.* -> //'
-    git diff --name-only '@{u}...HEAD' 2>/dev/null
-    [ -n "$anchor" ] && git diff --name-only "$anchor...HEAD" 2>/dev/null
+    git status --porcelain -z 2>/dev/null | while IFS= read -r -d '' entry; do
+      printf '%s\n' "${entry:3}"
+      case ${entry:0:2} in
+        R* | C* | ?R | ?C) IFS= read -r -d '' old && printf '%s\n' "$old" ;;
+      esac
+    done
+    git diff --no-renames --name-only '@{u}...HEAD' 2>/dev/null
+    [ -n "$anchor" ] && git diff --no-renames --name-only "$anchor...HEAD" 2>/dev/null
   } | sed 's/^"//; s/"$//' | awk 'NF && !seen[$0]++'
 }
