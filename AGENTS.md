@@ -14,13 +14,13 @@
 > 코드 게이트가 대부분 no-op이고, 실제로 장치가 받치는 것은 룰 2의 priority 하나뿐이다. 나머지는 규율이다.
 
 <!-- harness:golden:local -->
-<!-- harness:golden:local-based-on: 5b6513ffc8aaa0c5d8a03531278292ef30741e97bf1e3ff5d3ca732861464ab1 -->
+<!-- harness:golden:local-based-on: fc93fa25d074dc4bddcf1a72b6e60985b071e3ee20344e3cdbe9d9bbe0c92e94 -->
 
 1. **백로그가 SSOT다.** 작업 상태 정본 = `project-backlog.json`. 변경은 반드시 CLI로만: `bun scripts/backlog.ts <cmd>`. JSON 손편집 금지.
    ⚙ 장치: CLI 경유 변경은 `scripts/backlog.ts`가 쓰기 전 in-memory로 검증한다.
    ⚠️ **손편집 자체는 아무것도 막지 않는다** — `hooks/backlog-autosync.sh`(PostToolUse:Bash)는 무-mutate 계약(read + git commit만)이라 검증 없이 변경분을 커밋만 한다. 이 repo엔 CI도 pre-commit도 없다. "CLI로만"은 규율이다.
 
-2. **새 task는 priority + 근거를 함께 등록.** P0 비가역/차단 · P1 필수 · P2 개선 · P3 nice-to-have.
+2. **새 task는 priority를 정해 등록하고, 근거는 원칙으로 함께 적는다.** P0 비가역/차단 · P1 필수 · P2 개선 · P3 nice-to-have.
    ⚙ 장치: `backlog.ts add`의 priority 필수 인자(미지정 거부) — **이 문서에서 장치가 받치는 유일한 항목**.
    근거(`--why`/`--doc`)는 규율이다.
 
