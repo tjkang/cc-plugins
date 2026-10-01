@@ -14,7 +14,7 @@
 > 코드 게이트가 대부분 no-op이고, 실제로 장치가 받치는 것은 룰 2의 priority 하나뿐이다. 나머지는 규율이다.
 
 <!-- harness:golden:local -->
-<!-- harness:golden:local-based-on: fc93fa25d074dc4bddcf1a72b6e60985b071e3ee20344e3cdbe9d9bbe0c92e94 -->
+<!-- harness:golden:local-based-on: 247f4376826a30467c0a6338c40c7c11d84d0ec3adffa94b83b65d9a8b570848 -->
 
 1. **백로그가 SSOT다.** 작업 상태 정본 = `project-backlog.json`. 변경은 반드시 CLI로만: `bun scripts/backlog.ts <cmd>`. JSON 손편집 금지.
    ⚙ 장치: CLI 경유 변경은 `scripts/backlog.ts`가 쓰기 전 in-memory로 검증한다.
