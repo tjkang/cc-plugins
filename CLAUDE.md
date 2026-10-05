@@ -10,22 +10,10 @@ Claude Code 플러그인 모노레포. 범용 플러그인을 만들어 GitHub�
 
 ## 구조
 
-```
-cc-plugins/
-├── .claude-plugin/
-│   └── marketplace.json  # 마켓플레이스 매니페스트 (글로벌 배포)
-├── cc-upgrade/            # Anthropic 생태계 모니터링 플러그인
-│   ├── .claude-plugin/    # 플러그인 매니페스트
-│   ├── commands/          # 슬래시 커맨드 (/cc-upgrade)
-│   ├── skills/upgrade/    # SKILL.md — 5단계 워크플로우 + sources.json
-│   └── tools/             # TypeScript 도구 (check-sources.ts)
-├── cc-audit/              # 30일 사용량 기반 설정 감사 플러그인
-│   ├── .claude-plugin/    # 플러그인 매니페스트
-│   ├── commands/          # 슬래시 커맨드 (/cc-audit)
-│   └── skills/cc-audit/   # SKILL.md + audit.py 헬퍼
-├── hooks/·scripts/·harness.config.sh·project-backlog.json  # harness-kit 백로그 레이어
-└── (향후 플러그인 추가)
-```
+플러그인마다 최상위 폴더 하나를 쓴다. 폴더 안 구성은 `ls` 로 본다.
+
+- `cc-upgrade/` — Anthropic 생태계 모니터링 플러그인
+- `cc-audit/` — 30일 사용량 기반 설정 감사 플러그인
 
 ## 배포
 
