@@ -79,6 +79,83 @@ harness_load_config() {
   # 킷 기본은 끔 — repo가 명시적으로 켠다 (kit-init 질문).
   : "${WORKTREE_PORT_BASE=}"
   : "${WORKTREE_PORT_RANGE:=100}"
+  # size-guard: MAX_LINES 는 '=' — 빈 값("")이 기본이자 "비활성"이다. 적정 상한은 repo·언어마다 다르고
+  # 틀린 숫자는 매 편집마다 소음이 되므로 킷 기본은 끔 — repo가 명시적으로 켠다 (kit-init 질문).
+  : "${SIZE_GUARD_MAX_LINES=}"
+  : "${SIZE_GUARD_EXCLUDE_REGEX=}"
+}
+
+# 편집 도구(Edit/Write/MultiEdit) 훅 입력 JSON($1)에서 tool_input.file_path 값을 stdout 으로 낸다.
+# backlog-guard(PreToolUse)와 size-guard(PostToolUse)가 공유하는 단일 정본.
+#   반환 0 = 값을 확정했다 (빈 문자열이면 그 필드가 없다 — 편집 호출이 아님)
+#   반환 2 = **판정 불가** — JSON 파서가 없거나 입력을 파싱하지 못했다
+# 2 를 어떻게 다룰지는 호출자가 자기 게이트의 성격에 맞게 정한다 (차단 게이트는 막고, 알림 훅은 물러난다).
+#
+# 반드시 **실제 JSON 파서**로 읽는다: jq → node → bun 순. sed·grep 으로 값을 뽑지 않는다 — 키 이름의
+# \uXXXX 이스케이프, 콜론 뒤 개행, 같은 이름의 다른 키처럼 유효한 JSON 을 놓치는 경우를 막을 수 없고,
+# 놓친 입력이 "필드 없음" 으로 읽히면 차단 게이트가 조용히 열린다(리뷰에서 재현). 백로그 층은 node 나 bun 을
+# 요구하므로 그 층을 깐 repo 에는 파서가 하나는 있다.
+# node·bun 은 stdin 을 **바이트로 모은 뒤 한 번에** 디코드한다 — 청크마다 문자열로 바꾸면 청크 경계에 걸린
+# 다바이트 문자(한글 경로 등)가 깨져 다른 경로로 읽힌다(리뷰에서 재현: 65KB 넘는 입력의 한글 백로그 경로가 통과).
+harness_tool_file_path() {
+  local out js
+  [ -n "$1" ] || return 0
+  if command -v jq >/dev/null 2>&1; then
+    out=$(printf '%s' "$1" | jq -r '.tool_input.file_path | if type == "string" then . else "" end' 2>/dev/null) || return 2
+    printf '%s' "$out"
+    return 0
+  fi
+  js='const c=[];process.stdin.on("data",(d)=>{c.push(d);}).on("end",()=>{let v;try{v=JSON.parse(Buffer.concat(c).toString("utf8"));}catch(e){process.exit(3);}const t=v&&v.tool_input;const f=t&&t.file_path;process.stdout.write(typeof f==="string"?f:"");});'
+  if command -v node >/dev/null 2>&1; then
+    out=$(printf '%s' "$1" | node -e "$js" 2>/dev/null) || return 2
+  elif command -v bun >/dev/null 2>&1; then
+    out=$(printf '%s' "$1" | bun -e "$js" 2>/dev/null) || return 2
+  else
+    return 2
+  fi
+  printf '%s' "$out"
+  return 0
+}
+
+# 절대 경로($1)를 파일시스템을 보지 않고 글자만으로 정리한다 — 빈 조각·`.` 제거, `..` 는 앞 조각을 지운다.
+# 아직 없는 경로를 비교할 때 쓴다 (`a/./b` 와 `a/b`, `a/x/../b` 가 같은 생성 대상임을 알아보기 위해).
+harness_lexical_path() {
+  local rest=${1#/} seg out=""
+  while :; do
+    seg=${rest%%/*}
+    case $seg in
+      '' | .) ;;
+      ..) out=${out%/*} ;;
+      *) out="$out/$seg" ;;
+    esac
+    case $rest in
+      */*) rest=${rest#*/} ;;
+      *) break ;;
+    esac
+  done
+  printf '%s' "${out:-/}"
+}
+
+# 절대 경로($1)를 비교 가능한 형태로 낸다.
+#   디렉토리가 있으면: 물리 경로로 풀어 "<실제 디렉토리>/<파일명>"
+#   없으면: 글자로 정리한 뒤, 실재하는 가장 깊은 상위 디렉토리만 물리 경로로 풀고 나머지를 붙인다
+# 풀 수 없으면 비0 — 호출자가 그 실패를 판정에 쓴다.
+harness_canon_path() {
+  local dir=${1%/*} base=${1##*/} real n d rest
+  [ -n "$dir" ] || dir=/
+  if real=$(cd -P "$dir" 2>/dev/null && pwd -P); then
+    printf '%s/%s' "${real%/}" "$base"
+    return 0
+  fi
+  n=$(harness_lexical_path "$1")
+  d=${n%/*}
+  rest=/${n##*/}
+  while [ -n "$d" ] && [ ! -d "$d" ]; do
+    rest="/${d##*/}$rest"
+    d=${d%/*}
+  done
+  real=$(cd -P "${d:-/}" 2>/dev/null && pwd -P) || return 1
+  printf '%s%s' "${real%/}" "$rest"
 }
 
 # 현재 checkout이 linked worktree면 0, 본체(또는 비-git)면 1. 본체/worktree 판정의 단일 정본.

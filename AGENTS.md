@@ -14,11 +14,11 @@
 > 코드 게이트가 대부분 no-op이고, 실제로 장치가 받치는 것은 룰 2의 priority 하나뿐이다. 나머지는 규율이다.
 
 <!-- harness:golden:local -->
-<!-- harness:golden:local-based-on: 247f4376826a30467c0a6338c40c7c11d84d0ec3adffa94b83b65d9a8b570848 -->
+<!-- harness:golden:local-based-on: 3a032c0beb33f998b5712eaaa72f93a7500f510c9a2cc577dffaa3c7e3a48130 -->
 
 1. **백로그가 SSOT다.** 작업 상태 정본 = `project-backlog.json`. 변경은 반드시 CLI로만: `bun scripts/backlog.ts <cmd>`. JSON 손편집 금지.
-   ⚙ 장치: CLI 경유 변경은 `scripts/backlog.ts`가 쓰기 전 in-memory로 검증한다.
-   ⚠️ **손편집 자체는 아무것도 막지 않는다** — `hooks/backlog-autosync.sh`(PostToolUse:Bash)는 무-mutate 계약(read + git commit만)이라 검증 없이 변경분을 커밋만 한다. 이 repo엔 CI도 pre-commit도 없다. "CLI로만"은 규율이다.
+   ⚙ 장치: CLI 경유 변경은 `scripts/backlog.ts`가 쓰기 전 in-memory로 검증한다. 편집 도구(Edit/Write/MultiEdit)로 백로그 파일을 직접 고치는 호출은 `hooks/backlog-guard.sh`(PreToolUse, Claude Code 훅)가 막는다.
+   ⚠️ **그 밖의 손편집(Bash 로 쓰는 경로 · Codex)은 아무것도 막지 않는다** — `hooks/backlog-autosync.sh`(PostToolUse:Bash)는 무-mutate 계약(read + git commit만)이라 검증 없이 변경분을 커밋만 한다. 이 repo엔 CI도 pre-commit도 없다. "CLI로만"은 규율이다.
 
 2. **새 task는 priority를 정해 등록하고, 근거는 원칙으로 함께 적는다.** P0 비가역/차단 · P1 필수 · P2 개선 · P3 nice-to-have.
    ⚙ 장치: `backlog.ts add`의 priority 필수 인자(미지정 거부) — **이 문서에서 장치가 받치는 유일한 항목**.
