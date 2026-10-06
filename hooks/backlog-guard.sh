@@ -45,12 +45,21 @@ _same_file() {
   [ "$a" = "$b" ]
 }
 
-# checkout 루트 $1 의 백로그 경로. BACKLOG_FILE 이 절대 경로면 그대로 쓴다 (CLI 의 resolve(root, file) 과 같은 해석).
+# checkout 루트 $1 의 백로그 경로. 값 $2(없으면 이 세션의 BACKLOG_FILE)가 절대 경로면 그대로 쓴다
+# (CLI 의 resolve(root, file) 과 같은 해석).
 _backlog_of() {
-  case $BACKLOG_FILE in
-    /*) printf '%s' "$BACKLOG_FILE" ;;
-    *) printf '%s/%s' "$1" "$BACKLOG_FILE" ;;
+  local bf=${2:-$BACKLOG_FILE}
+  case $bf in
+    /*) printf '%s' "$bf" ;;
+    *) printf '%s/%s' "$1" "$bf" ;;
   esac
+}
+
+# checkout 루트 $1 이 **자기 config 로** 선언한 BACKLOG_FILE. 그 checkout 에 config 가 없거나 읽지 못하면 빈 문자열.
+# 서브셸에서 읽는다 — 다른 checkout 의 config 가 이 세션의 변수를 덮지 않게.
+_backlog_file_declared_in() {
+  [ -f "$1/harness.config.sh" ] || return 0
+  ( unset BACKLOG_FILE; cd "$1" 2>/dev/null && . ./harness.config.sh >/dev/null 2>&1 && printf '%s' "${BACKLOG_FILE:-}" ) 2>/dev/null || true
 }
 
 # 후보 1 — 이 checkout 의 백로그.
@@ -68,8 +77,16 @@ else
   if [ -n "$here_common" ] && [ -n "$there_common" ] && [ -n "$there_top" ]; then
     a=$(cd "$here_common" 2>/dev/null && pwd -P) || a=""
     b=$(cd "${target_dir:-/}" 2>/dev/null && cd "$there_common" 2>/dev/null && pwd -P) || b=""
-    if [ -n "$a" ] && [ "$a" = "$b" ] && _same_file "$target" "$(_backlog_of "$there_top")"; then
-      hit=0
+    if [ -n "$a" ] && [ "$a" = "$b" ]; then
+      # 그 worktree 의 백로그는 **그 worktree 의 config** 가 정한다(CLI 도 거기서 돌면 그 값을 읽는다).
+      # 세션 쪽 값만 보면, 두 checkout 의 BACKLOG_FILE 이 다를 때 그쪽의 진짜 원장이 통과한다.
+      # 두 값을 다 본다 — 어느 config 가 참인지 확신할 수 없는 쪽은 넓게 잡는다(놓치면 가드가 조용히 꺼진다).
+      there_bf=$(_backlog_file_declared_in "$there_top")
+      if _same_file "$target" "$(_backlog_of "$there_top")"; then
+        hit=0
+      elif [ -n "$there_bf" ] && _same_file "$target" "$(_backlog_of "$there_top" "$there_bf")"; then
+        hit=0
+      fi
     fi
   fi
 fi
