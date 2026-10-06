@@ -58,7 +58,7 @@ claude plugin tag ./cc-audit --dry-run   # plugin.json ↔ marketplace.json 버�
 ## Harness Golden Rules (harness-kit, 2026-07-18)
 
 > 규칙과 강제 장치는 쌍이어야 한다. 다만 이 저장소는 **플러그인 배포용 콘텐츠 · 솔로 · 무리모트 검증**이라
-> 코드 게이트가 대부분 no-op이고, 실제로 장치가 받치는 것은 룰 2의 priority 하나뿐이다. 나머지는 규율이다.
+> 코드 게이트가 대부분 no-op이고, 실제로 장치가 받치는 것은 룰 2의 priority 와 룰 1의 편집 도구 차단(`hooks/backlog-guard.sh`, Claude Code 세션 한정) 둘뿐이다. 나머지는 규율이다.
 
 <!-- harness:golden:local -->
 <!-- harness:golden:local-based-on: 3a032c0beb33f998b5712eaaa72f93a7500f510c9a2cc577dffaa3c7e3a48130 -->
@@ -68,7 +68,7 @@ claude plugin tag ./cc-audit --dry-run   # plugin.json ↔ marketplace.json 버�
    ⚠️ **그 밖의 손편집(Bash 로 쓰는 경로 · Codex)은 아무것도 막지 않는다** — `hooks/backlog-autosync.sh`(PostToolUse:Bash)는 무-mutate 계약(read + git commit만)이라 검증 없이 변경분을 커밋만 한다. 이 repo엔 CI도 pre-commit도 없다. "CLI로만"은 규율이다.
 
 2. **새 task는 priority를 정해 등록하고, 근거는 원칙으로 함께 적는다.** P0 비가역/차단 · P1 필수 · P2 개선 · P3 nice-to-have.
-   ⚙ 장치: `backlog.ts add`의 priority 필수 인자(미지정 거부) — **이 문서에서 장치가 받치는 유일한 항목**.
+   ⚙ 장치: `backlog.ts add`의 priority 필수 인자(미지정 거부) — **도구와 무관하게 장치가 받치는 유일한 항목**(룰 1의 `backlog-guard` 는 Claude Code 편집 도구에만 걸린다).
    근거(`--why`/`--doc`)는 규율이다.
 
 3. **커스터마이즈는 `harness.config.sh`로만.** hook 본문(`hooks/*.sh`)은 수정하지 않는다 — 킷 업데이트가 덮어써도 config 값이 보존되는 유일한 경로.
@@ -77,7 +77,7 @@ claude plugin tag ./cc-audit --dry-run   # plugin.json ↔ marketplace.json 버�
 ## 비활성 장치 (이 repo에선 no-op)
 
 ⚠️ **config만으로는 켜지지 않는다.** 아래 게이트는 값이 비어 있어서 꺼진 게 아니라 **훅 파일 자체가
-이 repo에 없다** — 배선된 실행 훅은 `hooks/backlog-autosync.sh` 하나뿐이고(`hooks/lib.sh`는 그것이
+이 repo에 없다** — 배선된 실행 훅은 `hooks/backlog-autosync.sh` 와 `hooks/backlog-guard.sh` 둘뿐이고(`hooks/lib.sh`는 그 둘이
 쓰는 보조 라이브러리), `githooks/` 디렉토리는 없다.
 
 - 보호브랜치 가드 — `hooks/protected-branch-guard.sh` 부재 + `PROTECTED_BRANCHES=""` (솔로 마켓플레이스 배포 repo)
